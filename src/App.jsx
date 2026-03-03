@@ -484,7 +484,7 @@ export default function App() {
  setAutoSumming(true);
  const sys = buildSysPrompt(tid, profile, existingSummaries, mats[tid]||[]);
  try {
- const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:800,system:sys,messages:[...messages.map(m=>({role:m.role,content:m.content})),{role:"user",content:SUMMARY_PROMPT}]})});
+ const r = await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:800,system:sys,messages:[...messages.map(m=>({role:m.role,content:m.content})),{role:"user",content:SUMMARY_PROMPT}]})});
  const d = await r.json();
  if (d.error) { setAutoSumming(false); return; }
  const txt = d.content.map(b=>b.text||"").join("");
@@ -515,7 +515,7 @@ export default function App() {
  let rawText = "";
  let status = 0;
  try {
- const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:fullSys,messages:apiMsgs})});
+ const r = await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:fullSys,messages:apiMsgs})});
  status = r.status;
  rawText = await r.text();
  } catch(fetchErr) {
@@ -539,7 +539,7 @@ export default function App() {
  setSumLoading(true);
  const sys = buildSysPrompt(active,profile,curMem,curMats);
  try {
- const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:sys,messages:[...msgs.map(m=>({role:m.role,content:m.content})),{role:"user",content:SUMMARY_PROMPT}]})});
+ const r = await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:sys,messages:[...msgs.map(m=>({role:m.role,content:m.content})),{role:"user",content:SUMMARY_PROMPT}]})});
  const d = await r.json();
  const txt = d.content.map(b=>b.text||"").join("");
  const today = new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
