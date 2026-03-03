@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Component } from "react";
+import { useState, useRef, useEffect, useCallback, Component } from "react";
 
 /*
  * ╔══════════════════════════════════════════════════════════════════╗
@@ -26,6 +26,7 @@ textarea { outline: none; }
 .card:hover { transform: translateY(-4px); }
 .hb:hover { transform: translateY(-2px); }
 .so:hover { transform: scale(1.03); }
+@keyframes mp { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4) } 50% { box-shadow: 0 0 0 10px rgba(220,38,38,0) } }
 `;
 
 
@@ -45,11 +46,12 @@ const SUBJECTS = {
     color: "#b5451b",
     gradient: "linear-gradient(135deg,#b5451b,#e8603a)",
     bg: "#fdf6f3",
-    description: "Conversation, grammar & vocabulary",
+    description: "Conversation, grammar & vocabulary \u00b7 \ud83c\udf99\ufe0f Voice",
+    voice: { enabled: true, lang: "es-ES", rate: 0.9, pitch: 1.1 },
     welcomeMessage(p, board, memCount) {
       const b = board ? ` ${board} Spanish \u2014 perfect.` : "";
       const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""} \u2014 I remember your history.` : "";
-      return `\u00a1Hola ${p.name}! I'm Se\u00f1ora L\u00f3pez.${b}${m}\n\nWhat shall we work on? \u00bfQu\u00e9 prefieres?`;
+      return `\u00a1Hola ${p.name}! I'm Se\u00f1ora L\u00f3pez.${b}${m}\n\nWhat shall we work on? \u00bfQu\u00e9 prefieres?\n\n\ud83c\udf99\ufe0f Tip: Tap "Voice" above to practise speaking!`;
     },
     systemPromptSpecific(board, tier) {
       let s = "\nSPANISH: Mix English/Spanish, increase Spanish as confidence grows. Correct gently (\"\u00a1Casi! Correct form: [X] because [reason]\"). End each exchange with a question.";
@@ -365,6 +367,81 @@ async function processFiles(files, onAdd, onError) {
     } catch { onError("Failed to process " + f.name); }
   }
   if (results.length) onAdd(results);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SPEECH SERVICE — voice input/output for language subjects
+   Only activates for subjects with voice.enabled = true (Spanish).
+   Uses browser-native Web Speech API — no external services needed.
+   Best support: Chrome/Edge. Partial: Safari. Limited: Firefox.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const SpeechRecognitionAPI = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+const speechSynth = typeof window !== "undefined" ? window.speechSynthesis : null;
+const HAS_RECOGNITION = !!SpeechRecognitionAPI;
+const HAS_SYNTHESIS = !!speechSynth;
+
+function findVoice(lang) {
+  if (!HAS_SYNTHESIS) return null;
+  const voices = speechSynth.getVoices();
+  const prefix = lang.split("-")[0];
+  return voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(prefix)) || null;
+}
+
+function speakText(text, voiceCfg, onEnd) {
+  if (!HAS_SYNTHESIS || !text) return;
+  speechSynth.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = voiceCfg?.lang || "es-ES";
+  utt.rate = voiceCfg?.rate || 0.9;
+  utt.pitch = voiceCfg?.pitch || 1.1;
+  const voice = findVoice(utt.lang);
+  if (voice) utt.voice = voice;
+  if (onEnd) utt.onend = onEnd;
+  speechSynth.speak(utt);
+}
+
+function stopSpeaking() { if (HAS_SYNTHESIS) speechSynth.cancel(); }
+
+// Preload voices (Chrome loads them asynchronously)
+if (HAS_SYNTHESIS) { speechSynth.getVoices(); if (speechSynth.onvoiceschanged !== undefined) speechSynth.onvoiceschanged = () => speechSynth.getVoices(); }
+
+function useSpeechRecognition(lang, onResult) {
+  const recRef = useRef(null);
+  const [listening, setListening] = useState(false);
+  const cbRef = useRef(onResult);
+  cbRef.current = onResult;
+
+  const start = useCallback(() => {
+    if (!HAS_RECOGNITION || listening) return;
+    const rec = new SpeechRecognitionAPI();
+    rec.lang = lang || "es-ES";
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => setListening(true);
+    rec.onresult = (e) => {
+      let final = "", interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t; else interim += t;
+      }
+      if (cbRef.current) cbRef.current(final || interim, !!final);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    try { rec.start(); } catch { setListening(false); }
+  }, [lang, listening]);
+
+  const stop = useCallback(() => {
+    if (recRef.current) try { recRef.current.stop(); } catch {}
+    setListening(false);
+  }, []);
+
+  useEffect(() => () => { if (recRef.current) try { recRef.current.stop(); } catch {} }, []);
+  return { listening, start, stop, supported: HAS_RECOGNITION };
 }
 
 
@@ -713,6 +790,45 @@ export default function App() {
   const curMats = active ? (mats[active] || []) : [];
   const curMem = active ? getSessions(memory, active) : [];
   const totalMem = Object.values(memory.subjects || {}).reduce((a, s) => a + (s?.length || 0), 0);
+  const voiceCfg = subject?.voice?.enabled ? subject.voice : null;
+
+  // Voice state
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const prevMsgCountRef = useRef(0);
+  const sendRef = useRef(null); // avoids stale closure in speech callback
+
+  // Speech recognition hook — only active for voice-enabled subjects
+  const { listening, start: startMic, stop: stopMic, supported: micSupported } = useSpeechRecognition(
+    voiceCfg?.lang || "es-ES",
+    useCallback((text, isFinal) => {
+      setInput(text);
+      if (isFinal && text.trim()) {
+        // Small delay so user sees recognised text before sending
+        const t = text.trim();
+        setTimeout(() => { setInput(""); if (sendRef.current) sendRef.current(t); }, 400);
+      }
+    }, [])
+  );
+
+  // Auto-speak new assistant messages when voice mode is on
+  useEffect(() => {
+    if (!voiceMode || !voiceCfg || !msgs.length) return;
+    if (msgs.length > prevMsgCountRef.current) {
+      const last = msgs[msgs.length - 1];
+      if (last.role === "assistant" && !last.content.startsWith("\u274c")) {
+        setSpeaking(true);
+        speakText(last.content, voiceCfg, () => setSpeaking(false));
+      }
+    }
+    prevMsgCountRef.current = msgs.length;
+  }, [msgs.length, voiceMode, voiceCfg]);
+
+  // Stop speaking when leaving a subject
+  useEffect(() => { if (!active) { stopSpeaking(); setSpeaking(false); } }, [active]);
+
+  // Turn off voice mode when switching to a non-voice subject
+  useEffect(() => { if (!voiceCfg) setVoiceMode(false); }, [voiceCfg]);
 
   // Persist memory
   useEffect(() => { saveMemory(memory); }, [memory]);
@@ -753,8 +869,9 @@ export default function App() {
     if (!override) setInput("");
     setLoading(true);
     const sys = buildSystemPrompt(active, profile, curMem, curMats, examMode);
+    const voiceNote = voiceMode ? "VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more Spanish than usual. If the student's Spanish has speech-recognition errors, interpret charitably.\n\n" : "";
     const textMats = curMats.filter(m => m.isText);
-    const fullSys = (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
+    const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
     try {
       const reply = await apiSend(apiKey, fullSys, apiMsgs);
@@ -763,6 +880,7 @@ export default function App() {
       setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: [...updated, { role: "assistant", content: "\u274c " + e.message }] } }));
     } finally { setLoading(false); }
   }
+  sendRef.current = send; // keep ref fresh for speech callback
 
   // Generate and save structured summary
   async function genSummary() {
@@ -789,7 +907,8 @@ export default function App() {
     } catch {} finally { setAutoSumming(false); }
   }
 
-  const quickPrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
+  const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
+  const quickPrompts = voiceMode ? ["Habl\u00e9mos en espa\u00f1ol", "Correct my pronunciation", ...basePrompts] : basePrompts;
 
   if (!apiKey) return <ApiKeyScreen onDone={k => { saveApiKey(k); setApiKey(k); }} />;
   if (!profile) return <Setup onDone={p => { saveProfile(p); setProfile(p); }} />;
@@ -817,6 +936,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
               <button className="btn" onClick={() => setExamMode(e => !e)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: examMode ? subject.color : "rgba(0,0,0,0.07)", color: examMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} {examMode ? "Exam ON" : "Exam"}</button>
+              {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) stopSpeaking(); return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
               <button className="btn" onClick={genSummary} disabled={sumLoading || msgs.length < 3} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: msgs.length >= 3 ? subject.color : "rgba(0,0,0,0.07)", color: msgs.length >= 3 ? "#fff" : "#aaa", fontSize: 11, fontWeight: 700, opacity: sumLoading ? .6 : 1 }}>{sumLoading ? "Saving..." : "\ud83d\udccb Summary"}</button>
             </div>
           )}
@@ -859,7 +979,14 @@ export default function App() {
               <div style={{ maxWidth: 680, margin: "0 auto" }}>
                 {msgs.map((m, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 10, animation: "mi .25s ease" }}>
-                    <div style={{ maxWidth: "78%", padding: "11px 15px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? subject.color : "#fff", color: m.role === "user" ? "#fff" : "#1a1a2e", fontSize: 14, lineHeight: 1.65, boxShadow: m.role === "user" ? `0 4px 14px ${subject.color}40` : "0 2px 10px rgba(0,0,0,0.07)", border: m.role === "user" ? "none" : "1px solid rgba(0,0,0,0.07)", whiteSpace: "pre-wrap" }}>{m.content}</div>
+                    <div style={{ maxWidth: "78%", position: "relative" }}>
+                      <div style={{ padding: "11px 15px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? subject.color : "#fff", color: m.role === "user" ? "#fff" : "#1a1a2e", fontSize: 14, lineHeight: 1.65, boxShadow: m.role === "user" ? `0 4px 14px ${subject.color}40` : "0 2px 10px rgba(0,0,0,0.07)", border: m.role === "user" ? "none" : "1px solid rgba(0,0,0,0.07)", whiteSpace: "pre-wrap" }}>{m.content}</div>
+                      {voiceCfg && m.role === "assistant" && !m.content.startsWith("\u274c") && (
+                        <button onClick={() => { if (speaking) stopSpeaking(); else { setSpeaking(true); speakText(m.content, voiceCfg, () => setSpeaking(false)); } }}
+                          style={{ position: "absolute", bottom: -4, right: -4, width: 26, height: 26, borderRadius: "50%", border: "1px solid #eee", background: "#fff", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.1)" }}
+                          title="Listen to this message">{"\ud83d\udd0a"}</button>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {loading && <div style={{ display: "flex" }}><div style={{ background: "#fff", borderRadius: 18, padding: "10px 14px", boxShadow: "0 2px 10px rgba(0,0,0,0.07)" }}><div style={{ display: "flex", gap: 5 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div></div></div>}
@@ -872,14 +999,20 @@ export default function App() {
               </div>
             </div>
             <div style={{ padding: "5px 22px 16px", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(10px)", borderTop: "1px solid rgba(0,0,0,0.07)" }}>
+              {listening && <div style={{ maxWidth: 680, margin: "0 auto 6px", padding: "8px 14px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 12, color: "#dc2626", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#dc2626", animation: "mp 1.2s ease infinite" }} />Listening... speak in Spanish or English</div>}
               <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder={examMode ? "Paste your question or attempt here..." : "Message " + subject.tutor.name + "..."} rows={1}
-                  style={{ flex: 1, padding: "12px 15px", borderRadius: 14, border: `2px solid ${input ? subject.color : "#e0e0e0"}`, resize: "none", fontSize: 14, lineHeight: 1.5, background: "#fff", maxHeight: 120, overflow: "auto", transition: "border-color .2s", outline: "none" }}
+                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder={listening ? "Listening..." : examMode ? "Paste your question or attempt here..." : voiceCfg ? "Type or tap \ud83c\udf99\ufe0f to speak..." : "Message " + subject.tutor.name + "..."} rows={1}
+                  style={{ flex: 1, padding: "12px 15px", borderRadius: 14, border: `2px solid ${listening ? "#dc2626" : input ? subject.color : "#e0e0e0"}`, resize: "none", fontSize: 14, lineHeight: 1.5, background: "#fff", maxHeight: 120, overflow: "auto", transition: "border-color .2s", outline: "none" }}
                   onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }} />
+                {voiceCfg && micSupported && (
+                  <button onClick={() => { if (listening) stopMic(); else { stopSpeaking(); startMic(); } }}
+                    style={{ width: 42, height: 42, borderRadius: 12, border: "none", flexShrink: 0, background: listening ? "#dc2626" : "#fef2f2", color: listening ? "#fff" : "#dc2626", fontSize: 18, cursor: "pointer", transition: "all .2s", animation: listening ? "mp 1.2s ease infinite" : "none" }}
+                    title={listening ? "Stop listening" : "Speak"}>{"\ud83c\udf99\ufe0f"}</button>
+                )}
                 <button onClick={() => send()} disabled={!input.trim() || loading}
                   style={{ width: 42, height: 42, borderRadius: 12, border: "none", flexShrink: 0, background: input.trim() && !loading ? subject.color : "#e8e8e8", color: input.trim() && !loading ? "#fff" : "#bbb", fontSize: 17, cursor: input.trim() && !loading ? "pointer" : "default", transition: "all .2s" }}>{"\u2191"}</button>
               </div>
-              <div style={{ maxWidth: 680, margin: "4px auto 0", fontSize: 10, color: "#bbb", paddingLeft: 2 }}>Enter to send {"\u00b7"} Shift+Enter new line</div>
+              <div style={{ maxWidth: 680, margin: "4px auto 0", fontSize: 10, color: "#bbb", paddingLeft: 2 }}>Enter to send {"\u00b7"} Shift+Enter new line{voiceCfg && micSupported ? " \u00b7 \ud83c\udf99\ufe0f Tap mic to speak" : ""}</div>
             </div>
           </div>
         )}
