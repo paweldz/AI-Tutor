@@ -1,62 +1,58 @@
 /**
-
-- /api/chat.js — Anthropic Claude API proxy
-- 
-- POST { model, max_tokens, system, messages }
-- Returns: Anthropic API response JSON
-- 
-- Requires ANTHROPIC_API_KEY in Vercel environment variables.
-  */
+ * /api/chat.js — Anthropic Claude API proxy
+ *
+ * POST { model, max_tokens, system, messages }
+ * Returns: Anthropic API response JSON
+ *
+ * Requires ANTHROPIC_API_KEY in Vercel environment variables.
+ */
 
 export default async function handler(req, res) {
-if (req.method !== “POST”) {
-return res.status(405).json({ error: “POST only” });
-}
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "POST only" });
+  }
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-if (!apiKey) {
-return res.status(500).json({ error: “ANTHROPIC_API_KEY not configured in Vercel environment variables” });
-}
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured in Vercel environment variables" });
+  }
 
-const { model, max_tokens, system, messages } = req.body || {};
-if (!messages || !Array.isArray(messages)) {
-return res.status(400).json({ error: “Missing ‘messages’ in request body” });
-}
+  const { model, max_tokens, system, messages } = req.body || {};
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: "Missing 'messages' in request body" });
+  }
 
-try {
-const response = await fetch(“https://api.anthropic.com/v1/messages”, {
-method: “POST”,
-headers: {
-“Content-Type”: “application/json”,
-“x-api-key”: apiKey,
-“anthropic-version”: “2023-06-01”,
-},
-body: JSON.stringify({
-model: model || “claude-sonnet-4-5-20250929”,
-max_tokens: max_tokens || 1200,
-system: system || “”,
-messages,
-}),
-});
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: model || "claude-sonnet-4-5-20250929",
+        max_tokens: max_tokens || 1200,
+        system: system || "",
+        messages,
+      }),
+    });
 
-```
-const data = await response.json();
+    const data = await response.json();
 
-// Pass through the status code so the client can detect 429, 529, etc.
-return res.status(response.status).json(data);
-```
-
-} catch (e) {
-console.error(“Anthropic proxy error:”, e);
-return res.status(500).json({ error: { type: “proxy_error”, message: “Failed to reach Anthropic: “ + e.message } });
-}
+    // Pass through the status code so the client can detect 429, 529, etc.
+    return res.status(response.status).json(data);
+  } catch (e) {
+    console.error("Anthropic proxy error:", e);
+    return res.status(500).json({ error: { type: "proxy_error", message: "Failed to reach Anthropic: " + e.message } });
+  }
 }
 
 // Allow larger payloads for file-based messages (base64 images/PDFs)
 export const config = {
-api: {
-bodyParser: {
-sizeLimit: “10mb”,
-},
-},
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
 };
