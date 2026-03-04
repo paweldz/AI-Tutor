@@ -257,6 +257,20 @@ function mergeMemory(local, cloud) {
   return merged;
 }
 
+/* Save a named setting to Supabase (fire-and-forget) */
+async function sbSaveSetting(studentName, key, value) {
+  try { await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_settings", studentName, key, value }) }); } catch {}
+}
+
+/* Load all settings from Supabase — returns { profile: {...}, ... } or null */
+async function sbLoadSettings(studentName) {
+  try {
+    const r = await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "load_settings", studentName }) });
+    const d = await r.json();
+    return d.ok ? d.settings : null;
+  } catch { return null; }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════
    ANTHROPIC API — via /api/chat proxy (key in Vercel env vars)
@@ -307,18 +321,19 @@ async function apiSummary(systemPrompt, chatMessages) {
   }
 }
 
-function buildSystemPrompt(sid, profile, summaries, mats, examMode) {
+function buildSystemPrompt(sid, profile, summaries, mats, examMode, character) {
   const sub = SUBJECTS[sid]; if (!sub) return "";
   const board = profile.examBoards?.[sid] || "";
   const boardNote = !board ? "Exam board unknown \u2014 cover broadly. Encourage student to find out." : "";
   const matBlock = mats?.length ? `\n\nTEACHER MATERIALS (${mats.length} file${mats.length > 1 ? "s" : ""}): ${mats.map(m => m.name).join(", ")}. Use as primary reference.` : "";
+  const charBlock = character ? `\n\nTUTOR CHARACTER: ${character}` : "";
   let histBlock = "";
   if (summaries?.length) {
     const recent = summaries.slice(-4);
     histBlock = "\n\nPAST SESSIONS (" + recent.length + "):\n" + recent.map(s => "[" + s.date + "]: " + (s.rawSummaryText || "").slice(0, 400)).join("\n---\n") + "\n\nAvoid re-teaching mastered topics, prioritise weak areas.";
   }
   return (examMode ? "EXAM PRACTICE MODE: student attempts first, then mark properly, show model answer.\n\n" : "") +
-    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${histBlock}${matBlock}\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier);
+    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${histBlock}${matBlock}\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier);
 }
 
 function buildApiMsgs(mats, convMsgs) {
@@ -592,6 +607,7 @@ function Setup({ onDone }) {
 
 function MaterialsPanel({ subject, mats, onAdd, onRemove, onClose }) {
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
   const [err, setErr] = useState(null);
   const [drag, setDrag] = useState(false);
   return (
@@ -602,12 +618,21 @@ function MaterialsPanel({ subject, mats, onAdd, onRemove, onClose }) {
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 13 }}>{"\u2715"} Close</button>
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
-          <div onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); processFiles(e.dataTransfer.files, onAdd, setErr); }} onClick={() => fileRef.current?.click()}
-            style={{ border: `2px dashed ${drag ? subject.color : "#ddd"}`, borderRadius: 14, padding: "28px 20px", textAlign: "center", cursor: "pointer", background: drag ? subject.color + "0a" : "#fafafa", transition: "all .2s", marginBottom: 16 }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>{"\ud83d\udcce"}</div>
-            <div style={{ fontWeight: 700, color: "#333", fontSize: 15, marginBottom: 4 }}>Drop files here or click to browse</div>
-            <div style={{ color: "#999", fontSize: 12, lineHeight: 1.6 }}>Photos of worksheets {"\u00b7"} Screenshots {"\u00b7"} PDFs {"\u00b7"} Text files (max {MAX_MB}MB)</div>
-            <input ref={fileRef} type="file" multiple accept="image/*,application/pdf,text/plain" style={{ display: "none" }} onChange={e => processFiles(e.target.files, onAdd, setErr)} />
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            <div onClick={() => cameraRef.current?.click()}
+              style={{ flex: 1, border: "2px solid " + subject.color, borderRadius: 14, padding: "20px 12px", textAlign: "center", cursor: "pointer", background: subject.color + "08", transition: "all .2s" }}>
+              <div style={{ fontSize: 32, marginBottom: 6 }}>{"\ud83d\udcf7"}</div>
+              <div style={{ fontWeight: 700, color: subject.color, fontSize: 14 }}>Take Photo</div>
+              <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>Snap a worksheet or notes</div>
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => processFiles(e.target.files, onAdd, setErr)} />
+            </div>
+            <div onClick={() => fileRef.current?.click()}
+              style={{ flex: 1, border: "2px dashed #ddd", borderRadius: 14, padding: "20px 12px", textAlign: "center", cursor: "pointer", background: "#fafafa", transition: "all .2s" }}>
+              <div style={{ fontSize: 32, marginBottom: 6 }}>{"\ud83d\udcce"}</div>
+              <div style={{ fontWeight: 700, color: "#333", fontSize: 14 }}>Upload File</div>
+              <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>PDFs, photos, text files</div>
+              <input ref={fileRef} type="file" multiple accept="image/*,application/pdf,text/plain" style={{ display: "none" }} onChange={e => processFiles(e.target.files, onAdd, setErr)} />
+            </div>
           </div>
           {err && <div style={{ background: "#fff5f5", border: "1px solid #fca5a5", borderRadius: 10, padding: "10px 14px", color: "#dc2626", fontSize: 13, marginBottom: 12 }}>{"\u26a0\ufe0f"} {err}</div>}
           {mats.length === 0 ? <div style={{ textAlign: "center", color: "#bbb", fontSize: 14, padding: 20 }}>No materials yet. Upload files and your tutor will use them automatically.</div> :
@@ -749,6 +774,61 @@ function Dashboard({ memory, mats, profile, onClose }) {
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   SETTINGS MODAL — edit profile, per-subject exam boards & tutor character
+   ═══════════════════════════════════════════════════════════════════ */
+
+function SettingsModal({ profile, onSave, onClose }) {
+  const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters } });
+  const [tab, setTab] = useState("profile");
+  const upd = (field, val) => setP(x => ({ ...x, [field]: val }));
+  const updBoard = (sid, val) => setP(x => ({ ...x, examBoards: { ...x.examBoards, [sid]: val } }));
+  const updChar = (sid, val) => setP(x => ({ ...x, tutorCharacters: { ...x.tutorCharacters, [sid]: val } }));
+  function save() { onSave(p); }
+  const tabs = [{ id: "profile", label: "Profile", emoji: "\ud83d\udc64" }, ...SUBJECT_LIST.map(s => ({ id: s.id, label: s.label, emoji: s.emoji }))];
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.85)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 600, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
+        <div style={{ padding: "18px 22px", background: "linear-gradient(135deg,#1a1a2e,#302b63)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>SETTINGS</div><div style={{ color: "#fff", fontSize: 20, fontFamily: "'Playfair Display',serif", fontWeight: 700 }}>{"\u2699\ufe0f"} Configure Your Tutors</div></div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={save} style={{ background: "#f0c040", border: "none", color: "#1a1a2e", borderRadius: 10, padding: "7px 16px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>{"\u2713"} Save</button>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", borderRadius: 10, padding: "7px 14px", cursor: "pointer", fontSize: 13 }}>{"\u2715"}</button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, padding: "12px 22px 0", overflowX: "auto", borderBottom: "1px solid #eee" }}>
+          {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 14px", borderRadius: "10px 10px 0 0", border: "none", background: tab === t.id ? "#f5f4f0" : "transparent", color: tab === t.id ? "#1a1a2e" : "#999", fontWeight: tab === t.id ? 700 : 400, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>{t.emoji} {t.label}</button>)}
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
+          {tab === "profile" && (<div>
+            <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Name</div><input value={p.name || ""} onChange={e => upd("name", e.target.value)} style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 14, outline: "none" }} /></div>
+            <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Year</div><div style={{ display: "flex", gap: 8 }}>{YEARS.map(y => <button key={y} onClick={() => upd("year", y)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.year === y ? "#f0c040" : "#e0e0e0"), background: p.year === y ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.year === y ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{y}</button>)}</div></div>
+            <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Tier</div><div style={{ display: "flex", gap: 8 }}>{TIERS.map(t => <button key={t} onClick={() => upd("tier", t)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.tier === t ? "#f0c040" : "#e0e0e0"), background: p.tier === t ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.tier === t ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{t}</button>)}</div></div>
+          </div>)}
+          {tab !== "profile" && (() => {
+            const sub = SUBJECTS[tab]; if (!sub) return null;
+            const board = p.examBoards?.[tab] || "";
+            const char = p.tutorCharacters?.[tab] || "";
+            return (<div>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>{sub.emoji} {sub.label} Exam Board</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>{BOARDS.map(b => <button key={b} onClick={() => updBoard(tab, board === b ? "" : b)} style={{ padding: 10, borderRadius: 10, border: "2px solid " + (board === b ? sub.color : "#e0e0e0"), background: board === b ? sub.color + "15" : "#fff", color: board === b ? sub.color : "#666", fontWeight: board === b ? 700 : 400, cursor: "pointer", fontSize: 12 }}>{b}</button>)}</div>
+                {board && <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>Tap again to deselect</div>}
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>{sub.tutor.name}&rsquo;s Character</div>
+                <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>Describe how this tutor should sound and behave. This shapes their personality in every conversation.</div>
+                <textarea value={char} onChange={e => updChar(tab, e.target.value)} rows={4} placeholder={"e.g. Warm and encouraging, uses humour, gives real-world examples, speaks slowly for tricky topics, always asks follow-up questions..."} style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.6, outline: "none", resize: "vertical" }} />
+              </div>
+            </div>);
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -760,7 +840,7 @@ export default function App() {
   const [sessions, setSessions] = useState({});
   const [mats, setMats] = useState(emptyMats);
   const [active, setActiveRaw] = useState(null);
-  const [modal, setModal] = useState(null); // "mats"|"memory"|"dash"|null — only one at a time
+  const [modal, setModal] = useState(null); // "mats"|"memory"|"dash"|"settings"|null
   const [showSum, setShowSum] = useState(null);
   const [examMode, setExamMode] = useState(false);
   const [input, setInput] = useState("");
@@ -782,9 +862,12 @@ export default function App() {
 
   // Voice state
   const [voiceMode, setVoiceMode] = useState(false);
+  const [convoMode, setConvoMode] = useState(false); // continuous conversation loop
   const [speaking, setSpeaking] = useState(false);
   const prevMsgCountRef = useRef(0);
   const sendRef = useRef(null); // avoids stale closure in speech callback
+  const convoRef = useRef(false); // tracks convoMode without stale closure
+  convoRef.current = convoMode;
 
   // Speech recognition hook — records audio, transcribes via Whisper
   const { listening, transcribing, start: startMic, stop: stopMic, supported: micSupported } = useSpeechRecognition(
@@ -799,6 +882,9 @@ export default function App() {
     }, [])
   );
 
+  const startMicRef = useRef(startMic);
+  startMicRef.current = startMic;
+
   // Auto-speak new assistant messages when voice mode is on
   useEffect(() => {
     if (!voiceMode || !voiceCfg || !msgs.length) return;
@@ -806,7 +892,11 @@ export default function App() {
       const last = msgs[msgs.length - 1];
       if (last.role === "assistant" && !last.content.startsWith("\u274c")) {
         setSpeaking(true);
-        speakText(last.content, voiceCfg, () => setSpeaking(false));
+        speakText(last.content, voiceCfg, () => {
+          setSpeaking(false);
+          // In conversation mode, auto-start recording after tutor finishes speaking
+          if (convoRef.current) setTimeout(() => startMicRef.current(), 300);
+        });
       }
     }
     prevMsgCountRef.current = msgs.length;
@@ -815,19 +905,40 @@ export default function App() {
   // Stop speaking when leaving a subject
   useEffect(() => { if (!active) { stopSpeaking(); setSpeaking(false); } }, [active]);
 
-  // Turn off voice mode when switching to a non-voice subject
-  useEffect(() => { if (!voiceCfg) setVoiceMode(false); }, [voiceCfg]);
+  // Turn off voice/convo mode when switching to a non-voice subject
+  useEffect(() => { if (!voiceCfg) { setVoiceMode(false); setConvoMode(false); } }, [voiceCfg]);
 
   // Persist memory
   useEffect(() => { saveMemory(memory); }, [memory]);
 
-  // Supabase sync — automatic via /api/db proxy
+  // Save profile to both localStorage and Supabase
+  function updateProfile(p) {
+    saveProfile(p);
+    setProfile(p);
+    if (p.name) sbSaveSetting(p.name, "profile", p);
+    setModal(null);
+  }
+
+  // Supabase sync — load memory + profile settings from cloud
   useEffect(() => {
     if (profile && !sbSynced) {
       setSbSynced(true);
+      // Load memory
       sbLoad(profile.name).then(cloud => {
         if (cloud) { setMemory(prev => mergeMemory(prev, cloud)); setDbConnected(true); }
-      }).catch(() => {}); // Supabase not configured — that's fine
+      }).catch(() => {});
+      // Load profile settings (cloud overrides local if exists)
+      sbLoadSettings(profile.name).then(settings => {
+        if (settings?.profile) {
+          const cloud = settings.profile;
+          setProfile(prev => {
+            const merged = { ...prev, ...cloud, examBoards: { ...prev.examBoards, ...cloud.examBoards }, tutorCharacters: { ...prev.tutorCharacters, ...cloud.tutorCharacters } };
+            saveProfile(merged);
+            return merged;
+          });
+          setDbConnected(true);
+        }
+      }).catch(() => {});
     }
   }, [profile, sbSynced]);
 
@@ -856,8 +967,8 @@ export default function App() {
     setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: updated } }));
     if (!override) setInput("");
     setLoading(true);
-    const sys = buildSystemPrompt(active, profile, curMem, curMats, examMode);
-    const voiceNote = voiceMode ? "VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more Spanish than usual. If the student's Spanish has speech-recognition errors, interpret charitably.\n\n" : "";
+    const sys = buildSystemPrompt(active, profile, curMem, curMats, examMode, profile.tutorCharacters?.[active]);
+    const voiceNote = convoMode ? "REAL-TIME CONVERSATION MODE: You and the student are in a live spoken conversation. Keep responses very short (1-2 sentences), natural and conversational. ALWAYS end with a question or prompt to keep the dialogue flowing. Use increasingly more Spanish as the student improves. Be encouraging and energetic.\n\n" : voiceMode ? "VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more Spanish than usual. If the student's Spanish has speech-recognition errors, interpret charitably.\n\n" : "";
     const textMats = curMats.filter(m => m.isText);
     const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
@@ -875,7 +986,7 @@ export default function App() {
     if (msgs.length < 3 || sumLoading) return;
     setSumLoading(true);
     try {
-      const sys = buildSystemPrompt(active, profile, curMem, curMats, false);
+      const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active]);
       const data = await apiSummary(sys, msgs);
       setMemory(prev => addSessionToMem(prev, active, data));
       if (profile) sbSave(profile.name, active, data.date, JSON.stringify(data));
@@ -888,7 +999,7 @@ export default function App() {
     if (chatMsgs.length < 6 || autoSumming) return;
     setAutoSumming(true);
     try {
-      const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false);
+      const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid]);
       const data = await apiSummary(sys, chatMsgs);
       setMemory(prev => addSessionToMem(prev, sid, data));
       if (profile) sbSave(profile.name, sid, data.date, JSON.stringify(data));
@@ -896,9 +1007,9 @@ export default function App() {
   }
 
   const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
-  const quickPrompts = voiceMode ? ["Habl\u00e9mos en espa\u00f1ol", "Correct my pronunciation", ...basePrompts] : basePrompts;
+  const quickPrompts = convoMode ? ["Habl\u00e9mos en espa\u00f1ol", "\u00bfPodemos practicar conversaci\u00f3n?", "Correct my pronunciation"] : voiceMode ? ["Habl\u00e9mos en espa\u00f1ol", "Correct my pronunciation", ...basePrompts] : basePrompts;
 
-  if (!profile) return <Setup onDone={p => { saveProfile(p); setProfile(p); }} />;
+  if (!profile) return <Setup onDone={p => updateProfile({ ...p, tutorCharacters: {} })} />;
 
   return (
     <ErrorBoundary>
@@ -909,6 +1020,7 @@ export default function App() {
         {modal === "mats" && active && <MaterialsPanel subject={subject} mats={curMats} onAdd={f => setMats(prev => ({ ...prev, [active]: [...prev[active], ...f] }))} onRemove={id => setMats(prev => ({ ...prev, [active]: prev[active].filter(m => m.id !== id) }))} onClose={() => setModal(null)} />}
         {modal === "memory" && <MemoryManager memory={memory} profile={profile} onClearSubject={sid => setMemory(prev => clearSubjectMem(prev, sid))} onClearAll={() => setMemory(clearAllMem())} onClose={() => setModal(null)} onImport={(p, m) => { saveProfile(p); setProfile(p); setMemory(m); setModal(null); }} />}
         {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
+        {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
 
         {/* Header */}
@@ -922,12 +1034,14 @@ export default function App() {
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
               <button className="btn" onClick={() => setExamMode(e => !e)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: examMode ? subject.color : "rgba(0,0,0,0.07)", color: examMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} {examMode ? "Exam ON" : "Exam"}</button>
-              {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) stopSpeaking(); return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
+              {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) { stopSpeaking(); setConvoMode(false); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
+              {voiceMode && voiceCfg && micSupported && <button className="btn" onClick={() => { setConvoMode(v => { if (!v) { stopSpeaking(); setTimeout(() => startMicRef.current(), 200); } else { stopMic(); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: convoMode ? "#059669" : "rgba(0,0,0,0.07)", color: convoMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700, animation: convoMode ? "mp 2s ease infinite" : "none" }}>{convoMode ? "\ud83d\udd04 Conversation" : "\ud83d\udde3\ufe0f Converse"}</button>}
               <button className="btn" onClick={genSummary} disabled={sumLoading || msgs.length < 3} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: msgs.length >= 3 ? subject.color : "rgba(0,0,0,0.07)", color: msgs.length >= 3 ? "#fff" : "#aaa", fontSize: 11, fontWeight: 700, opacity: sumLoading ? .6 : 1 }}>{sumLoading ? "Saving..." : "\ud83d\udccb Summary"}</button>
             </div>
           )}
           <div style={{ display: "flex", gap: 5 }}>
             {dbConnected && <div style={{ padding: "6px 10px", borderRadius: 20, background: "#1a1a2e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>{"\u2601\ufe0f"} Synced</div>}
+            <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\u2699\ufe0f"}</button>
             <button className="btn" onClick={() => setModal("memory")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83e\udde0"} Memory{totalMem > 0 ? " (" + totalMem + ")" : ""}</button>
             <button className="btn" onClick={() => setModal("dash")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc68\u200d\ud83d\udc67"} Parent</button>
           </div>
@@ -940,12 +1054,12 @@ export default function App() {
             <p style={{ color: "#999", fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory \u2014 your tutors remember your progress." : "Your tutors adapt to you and remember your progress after each session."}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 28 }}>
               {SUBJECT_LIST.map((t, i) => {
-                const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length;
+                const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
                 return (
                   <div key={t.id} className="card" onClick={() => setActive(t.id)} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .08}s both` }}>
                     <div style={{ background: t.gradient, padding: "20px 18px 16px" }}><div style={{ fontSize: 32, marginBottom: 6 }}>{t.emoji}</div><div style={{ fontFamily: "'Playfair Display',serif", color: "#fff", fontSize: 17, fontWeight: 700 }}>{t.tutor.name}</div><div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>{t.label}</div></div>
                     <div style={{ background: "#fff", padding: "10px 18px" }}>
-                      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>{t.description}</div>
+                      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>{t.description}{bd ? " \u00b7 " + bd : ""}</div>
                       <div style={{ fontSize: 12, color: t.color, fontWeight: 700 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "") + " remembered"}</div>
                       {mc > 0 && <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""} ready</div>}
                     </div>
@@ -961,6 +1075,7 @@ export default function App() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 61px)" }}>
             {examMode && <div style={{ background: subject.color, color: "#fff", textAlign: "center", padding: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>{"\ud83d\udcdd"} EXAM PRACTICE {"\u2014"} Attempt the question first. Tutor will mark it properly.</div>}
+            {convoMode && <div style={{ background: "#059669", color: "#fff", textAlign: "center", padding: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>{"\ud83d\udde3\ufe0f"} CONVERSATION MODE {"\u2014"} Speak naturally. {subject.tutor.name} will listen, respond, and keep the conversation going.</div>}
             <div style={{ flex: 1, overflowY: "auto", padding: "18px 22px" }}>
               <div style={{ maxWidth: 680, margin: "0 auto" }}>
                 {msgs.map((m, i) => (
