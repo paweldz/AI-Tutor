@@ -75,6 +75,44 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, rows });
     }
 
+    // ── SAVE SETTINGS (profile, subject config) ──
+    if (action === "save_settings") {
+      if (!studentName) return res.status(400).json({ error: "Missing studentName" });
+      const { key, value } = req.body;
+      if (!key) return res.status(400).json({ error: "Missing key" });
+      // Upsert: delete existing then insert
+      await fetch(
+        sbUrl + "/rest/v1/tutor_settings?student_name=eq." + encodeURIComponent(studentName) + "&key=eq." + encodeURIComponent(key),
+        { method: "DELETE", headers }
+      );
+      const r = await fetch(sbUrl + "/rest/v1/tutor_settings", {
+        method: "POST",
+        headers: { ...headers, Prefer: "return=minimal" },
+        body: JSON.stringify({
+          student_name: studentName,
+          key,
+          value: typeof value === "string" ? value : JSON.stringify(value),
+        }),
+      });
+      return res.status(200).json({ ok: r.ok });
+    }
+
+    // ── LOAD SETTINGS ──
+    if (action === "load_settings") {
+      if (!studentName) return res.status(400).json({ error: "Missing studentName" });
+      const r = await fetch(
+        sbUrl + "/rest/v1/tutor_settings?student_name=eq." + encodeURIComponent(studentName),
+        { headers }
+      );
+      if (!r.ok) return res.status(200).json({ ok: false, settings: {} });
+      const rows = await r.json();
+      const settings = {};
+      for (const row of rows) {
+        try { settings[row.key] = JSON.parse(row.value); } catch { settings[row.key] = row.value; }
+      }
+      return res.status(200).json({ ok: true, settings });
+    }
+
     return res.status(400).json({ error: "Unknown action: " + action });
   } catch (e) {
     console.error("Supabase proxy error:", e);
