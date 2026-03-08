@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "OPENAI_API_KEY not configured in Vercel environment variables" });
   }
 
-  const { audio, mimeType } = req.body || {};
+  const { audio, mimeType, language } = req.body || {};
   if (!audio || typeof audio !== "string") {
     return res.status(400).json({ error: "Missing 'audio' (base64) in request body" });
   }
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("model", "whisper-1");
-    formData.append("language", "es"); // Hint: expect Spanish (also handles English mixed in)
+    if (language) formData.append("language", language); // e.g. "es", "fr", "de"
 
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
