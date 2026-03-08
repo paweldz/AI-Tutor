@@ -31,128 +31,53 @@ textarea { outline: none; }
 
 
 /* ═══════════════════════════════════════════════════════════════════
-   SUBJECT CATALOG — Full list of available GCSE subjects.
-   Each child picks their own subjects during setup.
+   SUBJECT REGISTRY — Add new subjects here. This is the ONLY place.
+   Copy one block, change the values, done. The app picks it up.
    ═══════════════════════════════════════════════════════════════════ */
 
 const BOARDS = ["AQA","Edexcel","OCR","WJEC","Eduqas"];
 const YEARS  = ["Year 10","Year 11"];
 const TIERS  = ["Foundation","Higher"];
 
-/* Template helpers to reduce repetition */
-function stdWelcome(tutorName, p, board, memCount, extra) {
-  const b = board ? ` ${board} ${p.tier}.` : "";
-  const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
-  return `Hello ${p.name}! I'm ${tutorName}.${b}${m}\n\n${extra || "What shall we work on?"}`;
-}
-function stdQuickPrompts(exam, hasMats) {
-  return [exam ? "Here's my answer:" : hasMats ? "Quiz me on my materials" : "Can you quiz me?", hasMats ? "Prepare me for my test" : "How am I doing?", "How am I doing?", hasMats ? "Summarise my notes" : "What should I focus on?"];
-}
-
 const SUBJECTS = {
   spanish: {
     id: "spanish", label: "Spanish", emoji: "\ud83c\uddea\ud83c\uddf8",
     tutor: { name: "Se\u00f1ora L\u00f3pez" },
-    color: "#b5451b", gradient: "linear-gradient(135deg,#b5451b,#e8603a)", bg: "#fdf6f3",
-    description: "Conversation, grammar & vocabulary",
+    color: "#b5451b",
+    gradient: "linear-gradient(135deg,#b5451b,#e8603a)",
+    bg: "#fdf6f3",
+    description: "Conversation, grammar & vocabulary \u00b7 \ud83c\udf99\ufe0f Voice",
     voice: { enabled: true, lang: "es-ES", ttsVoice: "nova" },
     welcomeMessage(p, board, memCount) {
       const b = board ? ` ${board} Spanish \u2014 perfect.` : "";
       const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""} \u2014 I remember your history.` : "";
-      return `\u00a1Hola ${p.name}! I'm Se\u00f1ora L\u00f3pez.${b}${m}\n\nWhat shall we work on? \u00bfQu\u00e9 prefieres?\n\n\ud83c\udf99\ufe0f Tip: Tap "Voice" to practise speaking!`;
+      return `\u00a1Hola ${p.name}! I'm Se\u00f1ora L\u00f3pez.${b}${m}\n\nWhat shall we work on? \u00bfQu\u00e9 prefieres?\n\n\ud83c\udf99\ufe0f Tip: Tap "Voice" to hear me speak, and use the mic to practise speaking!`;
     },
     systemPromptSpecific(board, tier) {
-      let s = "\nSPANISH: Mix English/Spanish, increase Spanish as confidence grows. Correct gently. End each exchange with a question.";
+      let s = "\nSPANISH: Mix English/Spanish, increase Spanish as confidence grows. Correct gently (\"\u00a1Casi! Correct form: [X] because [reason]\"). End each exchange with a question.";
       if (board === "AQA") s += " AQA: 3 themes, 4 skills.";
       else if (board === "Edexcel") s += " Edexcel: translation + photo card.";
       else if (board === "OCR") s += " OCR: spontaneous speaking focus.";
       s += tier === "Higher" ? " Higher: subjunctive, complex tenses." : " Foundation: present/past/future, core vocab.";
       return s;
     },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  french: {
-    id: "french", label: "French", emoji: "\ud83c\uddeb\ud83c\uddf7",
-    tutor: { name: "Madame Dubois" },
-    color: "#1a3a8a", gradient: "linear-gradient(135deg,#1a3a8a,#3b5cc8)", bg: "#f3f5fd",
-    description: "Conversation, grammar & vocabulary",
-    voice: { enabled: true, lang: "fr-FR", ttsVoice: "nova" },
-    welcomeMessage(p, board, memCount) {
-      const b = board ? ` ${board} French.` : "";
-      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
-      return `Bonjour ${p.name}! I'm Madame Dubois.${b}${m}\n\nQu'est-ce qu'on fait aujourd'hui?\n\n\ud83c\udf99\ufe0f Tap "Voice" to practise speaking!`;
+    quickPrompts(exam, hasMats) {
+      return [exam ? "Here's my answer:" : hasMats ? "Quiz me on my materials" : "Can you quiz me?", hasMats ? "Prepare me for my test" : "How am I doing?", "How am I doing?", hasMats ? "Summarise my notes" : "What should I focus on?"];
     },
-    systemPromptSpecific(board, tier) {
-      let s = "\nFRENCH: Mix English/French, increase French as confidence grows. Correct gently with explanations. End each exchange with a question.";
-      if (board === "AQA") s += " AQA: 3 themes, 4 skills.";
-      else if (board === "Edexcel") s += " Edexcel: translation + photo card.";
-      s += tier === "Higher" ? " Higher: subjunctive, conditional, complex structures." : " Foundation: present/past/future, everyday vocab.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  german: {
-    id: "german", label: "German", emoji: "\ud83c\udde9\ud83c\uddea",
-    tutor: { name: "Herr Schmidt" },
-    color: "#8a6b1a", gradient: "linear-gradient(135deg,#8a6b1a,#c89e2a)", bg: "#fdfaf3",
-    description: "Conversation, grammar & vocabulary",
-    voice: { enabled: true, lang: "de-DE", ttsVoice: "nova" },
-    welcomeMessage(p, board, memCount) {
-      const b = board ? ` ${board} German.` : "";
-      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
-      return `Hallo ${p.name}! I'm Herr Schmidt.${b}${m}\n\nWas machen wir heute?\n\n\ud83c\udf99\ufe0f Tap "Voice" to practise speaking!`;
-    },
-    systemPromptSpecific(board, tier) {
-      let s = "\nGERMAN: Mix English/German, increase German as confidence grows. Pay special attention to cases (nom/acc/dat/gen) and word order. Correct gently.";
-      if (board === "AQA") s += " AQA: 3 themes, 4 skills.";
-      else if (board === "Edexcel") s += " Edexcel: translation + photo card.";
-      s += tier === "Higher" ? " Higher: subordinate clauses, passive, subjunctive." : " Foundation: present/past/future, core vocab.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  math: {
-    id: "math", label: "Maths", emoji: "\ud83d\udcd0",
-    tutor: { name: "Mr. Chen" },
-    color: "#1a3a7a", gradient: "linear-gradient(135deg,#1a3a7a,#2980b9)", bg: "#f3f6fd",
-    description: "Number, algebra, geometry & stats",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Chen", p, board, memCount, "What are we working on?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nMATHS: Show every step. When wrong ask \"where did it go wrong?\" first. Offer multiple methods. Flag: units, sig figs. Scaffold: trivial>easy>medium>hard.";
-      if (board === "Edexcel") s += " Edexcel: 3 papers (1 non-calc).";
-      else if (board === "AQA") s += " AQA: multi-step context problems.";
-      s += tier === "Higher" ? " Higher: quadratics, circle theorems, vectors, surds, functions, iteration." : " Foundation: arithmetic, algebra, geometry, probability.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  english: {
-    id: "english", label: "English", emoji: "\ud83d\udcda",
-    tutor: { name: "Ms. Williams" },
-    color: "#5b1a6b", gradient: "linear-gradient(135deg,#5b1a6b,#8e44ad)", bg: "#faf3fd",
-    description: "Language & Literature",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Williams", p, board, memCount, "Language or Literature today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nENGLISH: Push for the 'so what' on every technique. Mark writing: score + reasons + one improvement. Build vocab.";
-      if (board === "AQA") s += " AQA: P1 fiction+creative, P2 non-fiction+viewpoint, AO1-AO6.";
-      else if (board === "Edexcel") s += " Edexcel: personal response emphasis.";
-      else if (board === "OCR") s += " OCR: audience/purpose central.";
-      s += " Literature: link to context for top marks.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
   },
 
   science: {
     id: "science", label: "Science", emoji: "\ud83d\udd2c",
     tutor: { name: "Dr. Patel" },
-    color: "#1a6b3c", gradient: "linear-gradient(135deg,#1a6b3c,#27ae60)", bg: "#f3fdf6",
+    color: "#1a6b3c",
+    gradient: "linear-gradient(135deg,#1a6b3c,#27ae60)",
+    bg: "#f3fdf6",
     description: "Biology, Chemistry & Physics",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Patel", p, board, memCount, "Biology, Chemistry or Physics today?"); },
+    welcomeMessage(p, board, memCount) {
+      const b = board ? ` ${board} ${p.tier}.` : "";
+      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
+      return `Hello ${p.name}! I'm Dr. Patel.${b}${m}\n\nBiology, Chemistry or Physics today?`;
+    },
     systemPromptSpecific(board, tier) {
       let s = "\nSCIENCE: Use analogies. Flag exam technique (\"6-mark answer needs 6 points\"). Show every calc step.";
       if (board === "AQA") s += " AQA: required practicals, ~30% maths, Trilogy or Triple.";
@@ -161,236 +86,75 @@ const SUBJECTS = {
       s += tier === "Higher" ? " Higher: complex maths, mechanisms, organic chem." : " Foundation: concepts over derivation.";
       return s;
     },
-    quickPrompts: stdQuickPrompts,
+    quickPrompts(exam, hasMats) {
+      return [exam ? "Here's my answer:" : hasMats ? "Quiz me on my materials" : "Can you quiz me?", hasMats ? "Prepare me for my test" : "How am I doing?", "How am I doing?", hasMats ? "Summarise my notes" : "What should I focus on?"];
+    },
   },
 
-  history: {
-    id: "history", label: "History", emoji: "\ud83c\udfdb\ufe0f",
-    tutor: { name: "Mr. Hartley" },
-    color: "#7a4a1a", gradient: "linear-gradient(135deg,#7a4a1a,#a66b2f)", bg: "#fdf8f3",
-    description: "British, world & thematic history",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Hartley", p, board, memCount, "Which period or topic shall we explore?"); },
+  math: {
+    id: "math", label: "Maths", emoji: "\ud83d\udcd0",
+    tutor: { name: "Mr. Chen" },
+    color: "#1a3a7a",
+    gradient: "linear-gradient(135deg,#1a3a7a,#2980b9)",
+    bg: "#f3f6fd",
+    description: "Number, algebra, geometry & stats",
+    welcomeMessage(p, board, memCount) {
+      const b = board ? ` ${p.tier} ${board}.` : "";
+      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
+      return `Hi ${p.name}! I'm Mr. Chen.${b}${m}\n\nWhat are we working on?`;
+    },
     systemPromptSpecific(board, tier) {
-      let s = "\nHISTORY: Always link evidence to argument. Practice source analysis: provenance, reliability, utility. Push for 'so what' conclusions. Teach PEE/PEEL paragraphs.";
-      if (board === "AQA") s += " AQA: 2 period studies + thematic + British depth.";
-      else if (board === "Edexcel") s += " Edexcel: 3 papers, historic environment.";
-      else if (board === "OCR") s += " OCR: depth + period studies.";
+      let s = "\nMATHS: Show every step. When wrong ask \"where did it go wrong?\" first. Offer multiple methods. Flag: units, sig figs. Scaffold: trivial>easy>medium>hard.";
+      if (board === "Edexcel") s += " Edexcel: 3 papers (1 non-calc).";
+      else if (board === "AQA") s += " AQA: multi-step context problems.";
+      s += tier === "Higher" ? " Higher: quadratics, circle theorems, vectors, surds, functions, iteration." : " Foundation: arithmetic, algebra, geometry, probability.";
       return s;
     },
-    quickPrompts: stdQuickPrompts,
+    quickPrompts(exam, hasMats) {
+      return [exam ? "Here's my answer:" : hasMats ? "Quiz me on my materials" : "Can you quiz me?", hasMats ? "Prepare me for my test" : "How am I doing?", "How am I doing?", hasMats ? "Summarise my notes" : "What should I focus on?"];
+    },
   },
 
-  geography: {
-    id: "geography", label: "Geography", emoji: "\ud83c\udf0d",
-    tutor: { name: "Ms. Rivera" },
-    color: "#1a6b5a", gradient: "linear-gradient(135deg,#1a6b5a,#1abc9c)", bg: "#f3fdfa",
-    description: "Physical & human geography",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Rivera", p, board, memCount, "Physical or human geography today?"); },
+  english: {
+    id: "english", label: "English", emoji: "\ud83d\udcda",
+    tutor: { name: "Ms. Williams" },
+    color: "#5b1a6b",
+    gradient: "linear-gradient(135deg,#5b1a6b,#8e44ad)",
+    bg: "#faf3fd",
+    description: "Language & Literature",
+    welcomeMessage(p, board, memCount) {
+      const b = board ? ` ${board} Language & Literature.` : "";
+      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
+      return `Hello ${p.name}! I'm Ms. Williams.${b}${m}\n\nWhere shall we start?`;
+    },
     systemPromptSpecific(board, tier) {
-      let s = "\nGEOGRAPHY: Use real case studies. Practice map skills and data interpretation. Push for named examples in every answer. Teach command word awareness.";
-      if (board === "AQA") s += " AQA: Living world, Urban issues, Physical landscapes, Fieldwork.";
-      else if (board === "Edexcel") s += " Edexcel: Global + UK, decision-making exercise.";
-      else if (board === "OCR") s += " OCR: Our Natural World, People and Society, Geographical Exploration.";
+      let s = "\nENGLISH: Push for the 'so what' on every technique. Mark writing: score + reasons + one improvement. Build vocab: connotation, juxtaposition, semantic field.";
+      if (board === "AQA") s += " AQA: P1 fiction+creative, P2 non-fiction+viewpoint, AO1-AO6.";
+      else if (board === "Edexcel") s += " Edexcel: personal response emphasis.";
+      else if (board === "OCR") s += " OCR: audience/purpose central.";
+      s += " Literature: link to context for top marks.";
       return s;
     },
-    quickPrompts: stdQuickPrompts,
+    quickPrompts(exam, hasMats) {
+      return [exam ? "Here's my answer:" : hasMats ? "Quiz me on my materials" : "Can you quiz me?", hasMats ? "Prepare me for my test" : "How am I doing?", "How am I doing?", hasMats ? "Summarise my notes" : "What should I focus on?"];
+    },
   },
 
-  computer_science: {
-    id: "computer_science", label: "Computer Science", emoji: "\ud83d\udcbb",
-    tutor: { name: "Dr. Okonkwo" },
-    color: "#2d3a8c", gradient: "linear-gradient(135deg,#2d3a8c,#5b6abf)", bg: "#f4f4fd",
-    description: "Programming, theory & algorithms",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Okonkwo", p, board, memCount, "Theory, programming, or algorithms today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nCOMPUTER SCIENCE: For code, show step-by-step logic. Use trace tables. Explain theory with real analogies. Cover both Python and pseudocode.";
-      if (board === "AQA") s += " AQA: 2 papers, Python-focused, computational thinking.";
-      else if (board === "Edexcel") s += " Edexcel: Python, 2 exams + NEA.";
-      else if (board === "OCR") s += " OCR: J277, Python/pseudocode, computational thinking.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  religious_studies: {
-    id: "religious_studies", label: "Religious Studies", emoji: "\ud83d\udd4a\ufe0f",
-    tutor: { name: "Ms. Begum" },
-    color: "#6b3a8a", gradient: "linear-gradient(135deg,#6b3a8a,#9b59b6)", bg: "#f9f3fd",
-    description: "Beliefs, practices & ethics",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Begum", p, board, memCount, "Which religion or ethical topic shall we discuss?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nRELIGIOUS STUDIES: Always present multiple viewpoints. Use specific teachings and sacred texts as evidence. Practice 12-mark evaluation questions.";
-      if (board === "AQA") s += " AQA: 2 religions + 4 thematic studies.";
-      else if (board === "Edexcel") s += " Edexcel: Beliefs, Marriage & Family, Living the Faith, Peace & Conflict.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  business: {
-    id: "business", label: "Business Studies", emoji: "\ud83d\udcbc",
-    tutor: { name: "Mr. Osei" },
-    color: "#1a5a3a", gradient: "linear-gradient(135deg,#1a5a3a,#2e8b57)", bg: "#f3fdf7",
-    description: "Enterprise, marketing, finance & operations",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Osei", p, board, memCount, "Marketing, finance, operations, or HR today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nBUSINESS: Use real company examples. Practice applying theory to case studies. Teach calculation methods (GP%, NP%, ARR). Push for evaluation in every answer.";
-      if (board === "AQA") s += " AQA: 2 papers, business in the real world + influences.";
-      else if (board === "Edexcel") s += " Edexcel: Theme 1 small business, Theme 2 building a business.";
-      else if (board === "OCR") s += " OCR: Business Activity, Marketing, People, Finance, Operations.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  art: {
-    id: "art", label: "Art & Design", emoji: "\ud83c\udfa8",
-    tutor: { name: "Ms. Fontaine" },
-    color: "#c44569", gradient: "linear-gradient(135deg,#c44569,#e8608a)", bg: "#fdf3f6",
-    description: "Fine art, graphics & photography",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Fontaine", p, board, memCount, "Shall we work on your portfolio, explore artists, or practise techniques?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nART & DESIGN: Focus on annotation and critical analysis. Guide formal elements vocabulary. Help with artist research and comparisons. Coach exam preparation and time management for the externally set assignment.";
-      if (board === "AQA") s += " AQA: Portfolio (60%) + Externally Set Assignment (40%).";
-      else if (board === "Edexcel") s += " Edexcel: Personal Portfolio + Externally Set Assignment.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  music: {
-    id: "music", label: "Music", emoji: "\ud83c\udfb5",
-    tutor: { name: "Mr. Abara" },
-    color: "#8a1a5a", gradient: "linear-gradient(135deg,#8a1a5a,#c2185b)", bg: "#fdf3f8",
-    description: "Performance, composition & listening",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Abara", p, board, memCount, "Performance, composition, or listening practice?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nMUSIC: Use correct musical terminology (texture, timbre, dynamics, tempo). Help with set work analysis. Guide composition techniques. Practice listening question technique.";
-      if (board === "AQA") s += " AQA: Understanding Music, Performing, Composing. Set works across 4 areas.";
-      else if (board === "Edexcel") s += " Edexcel: 8 set works across 4 areas of study.";
-      else if (board === "OCR") s += " OCR: Integrated portfolio approach.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  drama: {
-    id: "drama", label: "Drama", emoji: "\ud83c\udfad",
-    tutor: { name: "Ms. Park" },
-    color: "#c44500", gradient: "linear-gradient(135deg,#c44500,#e06520)", bg: "#fdf5f0",
-    description: "Performance, devising & written exam",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Park", p, board, memCount, "Performance skills, set text, or devising today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nDRAMA: Use correct drama terminology (proxemics, semiotics, Brechtian, naturalism). Help with set text analysis. Coach performance evaluation writing. Guide devising logs.";
-      if (board === "AQA") s += " AQA: Understanding Drama, Devising Drama, Texts in Practice.";
-      else if (board === "Edexcel") s += " Edexcel: Devising, Performance from text, Theatre Makers in Practice.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  dt: {
-    id: "dt", label: "Design & Technology", emoji: "\u2699\ufe0f",
-    tutor: { name: "Mr. Novak" },
-    color: "#5a5a1a", gradient: "linear-gradient(135deg,#5a5a1a,#8a8a2a)", bg: "#fdfdf3",
-    description: "Materials, systems & design principles",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Novak", p, board, memCount, "Design theory, materials, or your NEA today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nDESIGN & TECHNOLOGY: Cover materials (timber, metals, polymers, textiles), manufacturing processes, design principles, and environmental impact. Help with iterative design and NEA structure.";
-      if (board === "AQA") s += " AQA: Core technical + specialist + designing & making principles.";
-      else if (board === "Edexcel") s += " Edexcel: Core + specialist knowledge, maths in DT.";
-      else if (board === "OCR") s += " OCR: Principles of DT, iterative design.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  pe: {
-    id: "pe", label: "PE", emoji: "\u26bd",
-    tutor: { name: "Coach Thompson" },
-    color: "#1a7a3a", gradient: "linear-gradient(135deg,#1a7a3a,#2ecc71)", bg: "#f3fdf5",
-    description: "Anatomy, training & sport psychology",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Coach Thompson", p, board, memCount, "Anatomy, training principles, or sport psychology?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nPE: Cover anatomy & physiology, movement analysis, physical training, sport psychology, socio-cultural influences, and health. Use sport-specific examples. Help with data analysis questions.";
-      if (board === "AQA") s += " AQA: 2 papers + practical performance + analysis.";
-      else if (board === "Edexcel") s += " Edexcel: Fitness and Body Systems, Health and Performance.";
-      else if (board === "OCR") s += " OCR: Physical Factors, Socio-cultural Issues, NEA.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  psychology: {
-    id: "psychology", label: "Psychology", emoji: "\ud83e\udde0",
-    tutor: { name: "Dr. Lewin" },
-    color: "#4a1a7a", gradient: "linear-gradient(135deg,#4a1a7a,#7e57c2)", bg: "#f7f3fd",
-    description: "Research methods, memory & development",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Lewin", p, board, memCount, "Which topic area shall we explore?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nPSYCHOLOGY: Reference key studies by name. Practice research methods terminology. Evaluate using strengths/weaknesses format. Teach AO1 (knowledge) vs AO2 (application) vs AO3 (evaluation).";
-      if (board === "AQA") s += " AQA: Cognition & Behaviour, Social Context, Research Methods.";
-      else if (board === "Edexcel") s += " Edexcel: 2 papers, clinical + developmental + social + cognitive.";
-      else if (board === "OCR") s += " OCR: Criminal, Developmental, Psychological Problems, Social Influence.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  economics: {
-    id: "economics", label: "Economics", emoji: "\ud83d\udcb0",
-    tutor: { name: "Ms. Chang" },
-    color: "#2a6a4a", gradient: "linear-gradient(135deg,#2a6a4a,#3da06a)", bg: "#f3fdf8",
-    description: "Micro, macro & international trade",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Chang", p, board, memCount, "Microeconomics, macroeconomics, or something specific?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nECONOMICS: Use supply/demand diagrams mentally. Teach chains of reasoning. Push for real-world examples. Practice data response and extended writing.";
-      if (board === "Edexcel") s += " Edexcel: Theme 1 micro, Theme 2 macro.";
-      else if (board === "OCR") s += " OCR: Introduction to Economics, National & International.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  sociology: {
-    id: "sociology", label: "Sociology", emoji: "\ud83c\udfe0",
-    tutor: { name: "Dr. Morris" },
-    color: "#6b1a3a", gradient: "linear-gradient(135deg,#6b1a3a,#a02255)", bg: "#fdf3f6",
-    description: "Families, education, crime & theory",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Morris", p, board, memCount, "Which topic \u2014 families, education, crime, or theory?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nSOCIOLOGY: Reference key sociologists by name. Use correct terminology (functionalism, Marxism, feminism, interactionism). Practice for evidence + evaluation. Link theory to contemporary examples.";
-      if (board === "AQA") s += " AQA: Education, Families, Crime & Deviance, Stratification.";
-      else if (board === "OCR") s += " OCR: Socialisation, Culture & Identity + 2 options.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  latin: {
-    id: "latin", label: "Latin", emoji: "\ud83c\udfdb",
-    tutor: { name: "Dr. Varro" },
-    color: "#5a3a1a", gradient: "linear-gradient(135deg,#5a3a1a,#8b6914)", bg: "#fdf9f3",
-    description: "Translation, grammar & civilisation",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Varro", p, board, memCount, "Grammar, translation, or civilisation today? Salve!"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nLATIN: Practice translation both ways. Drill declensions and conjugations systematically. Use etymology to make vocab memorable. Cover set texts and civilisation content.";
-      if (board === "OCR") s += " OCR: 3 components \u2014 Language, Prose Literature, Civilisation/Verse.";
-      else if (board === "WJEC") s += " WJEC/Eduqas: Latin Language + Literature.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
+  /* ────────────────────────────────────────────────
+     TO ADD A NEW SUBJECT: Copy any block above, paste here, and change:
+     - id, label, emoji, tutor.name
+     - color, gradient, bg
+     - description
+     - welcomeMessage, systemPromptSpecific, quickPrompts
+     That's it — the app picks it up automatically everywhere.
+     ──────────────────────────────────────────────── */
 };
 
-/* Derived helpers */
-const ALL_SUBJECT_IDS   = Object.keys(SUBJECTS);
-const ALL_SUBJECT_LIST  = Object.values(SUBJECTS);
-function mySubjects(profile) {
-  const ids = profile?.subjects || [];
-  return ids.length ? ids.map(id => SUBJECTS[id]).filter(Boolean) : ALL_SUBJECT_LIST.slice(0, 4); // fallback for old profiles
-}
-function emptyMats() { return Object.fromEntries(ALL_SUBJECT_IDS.map(id => [id, []])); }
+/* Derived helpers — never edit these */
+const SUBJECT_IDS   = Object.keys(SUBJECTS);
+const SUBJECT_LIST  = Object.values(SUBJECTS);
+const SUBJECT_STEPS = SUBJECT_LIST.map(s => ({ tutorId: s.id, label: s.label, emoji: s.emoji }));
+function emptyMats() { return Object.fromEntries(SUBJECT_IDS.map(id => [id, []])); }
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -789,112 +553,51 @@ class ErrorBoundary extends Component {
    ═══════════════════════════════════════════════════════════════════ */
 
 function Setup({ onDone }) {
-  const [phase, setPhase] = useState("name"); // "name" | "checking" | "year" | "tier" | "subjects" | "boards"
-  const [p, setP] = useState({ name: "", year: "", tier: "", examBoards: {}, subjects: [], tutorCharacters: {} });
-  const [boardIdx, setBoardIdx] = useState(0);
-  const upd = (f, v) => setP(x => ({ ...x, [f]: v }));
-  const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(s => s !== id) : [...x.subjects, id] }));
-
-  async function afterName() {
-    const name = p.name.trim();
-    if (!name) return;
-    setPhase("checking");
-    try {
-      const settings = await sbLoadSettings(name);
-      if (settings?.profile && settings.profile.year) {
-        onDone({ ...settings.profile, name });
-        return;
-      }
-    } catch {}
-    setPhase("year");
-  }
-
-  const selectedSubs = p.subjects.map(id => SUBJECTS[id]).filter(Boolean);
-  const boardSub = selectedSubs[boardIdx];
-
-  function nextBoard() {
-    if (boardIdx < selectedSubs.length - 1) setBoardIdx(i => i + 1);
-    else onDone(p);
-  }
-
-  const wrap = children => (
+  const [step, setStep] = useState(0);
+  const [p, setP] = useState({ name: "", year: "", tier: "", examBoards: {} });
+  const steps = [
+    { type: "text", field: "name", title: "What's your name?", sub: "Your tutors will use this throughout your sessions", ph: "Enter your first name..." },
+    { type: "choice", field: "year", title: "Which year are you in?", sub: "Helps tutors prioritise the right content", opts: YEARS },
+    { type: "choice", field: "tier", title: "Foundation or Higher tier?", sub: "Applies to Maths & Science", opts: TIERS },
+    ...SUBJECT_STEPS.map(s => ({ type: "board", tid: s.tutorId, emoji: s.emoji, title: s.emoji + " " + s.label + " exam board?", sub: "Skip if unsure \u2014 your tutor will cover all boards." })),
+  ];
+  const cur = steps[step], isBoard = cur.type === "board", isLast = step === steps.length - 1;
+  const get = () => isBoard ? (p.examBoards[cur.tid] || "") : (p[cur.field] || "");
+  const set = v => isBoard ? setP(x => ({ ...x, examBoards: { ...x.examBoards, [cur.tid]: v } })) : setP(x => ({ ...x, [cur.field]: v }));
+  const ok = isBoard || get().trim().length > 0;
+  function next() { if (!ok) return; if (!isLast) setStep(s => s + 1); else onDone(p); }
+  return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 540 }}>
+      <div style={{ width: "100%", maxWidth: 500 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 40 }}>
+          {steps.map((_, i) => <div key={i} style={{ width: i === step ? 28 : 8, height: 8, borderRadius: 4, background: i <= step ? "#f0c040" : "rgba(255,255,255,0.2)", transition: "all .3s" }} />)}
+        </div>
         <div style={{ background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px)", borderRadius: 24, border: "1px solid rgba(255,255,255,0.12)", padding: "40px 36px" }}>
-          {children}
+          <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>SETUP {step + 1}/{steps.length}{isBoard ? " \u00b7 optional" : ""}</div>
+          <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>{cur.title}</h2>
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28, lineHeight: 1.5 }}>{cur.sub}</p>
+          {cur.type === "text" && <input autoFocus value={get()} onChange={e => set(e.target.value)} onKeyDown={e => e.key === "Enter" && next()} placeholder={cur.ph} style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 18, fontFamily: "'Source Sans 3',sans-serif", outline: "none", marginBottom: 20 }} />}
+          {(cur.type === "choice" || cur.type === "board") && (
+            <div style={{ display: "grid", gridTemplateColumns: cur.type === "board" ? "1fr 1fr 1fr" : (cur.opts?.length > 3 ? "1fr 1fr" : "1fr"), gap: 8, marginBottom: 12 }}>
+              {(cur.opts || BOARDS).map(o => (
+                <div key={o} className="so" onClick={() => set(get() === o ? "" : o)}
+                  style={{ padding: "12px 14px", borderRadius: 10, border: `2px solid ${get() === o ? "#f0c040" : "rgba(255,255,255,0.15)"}`, background: get() === o ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: get() === o ? "#f0c040" : "rgba(255,255,255,0.8)", fontSize: 14, fontWeight: get() === o ? 700 : 400, cursor: "pointer", textAlign: "center", transition: "all .15s" }}>
+                  {o}
+                </div>
+              ))}
+            </div>
+          )}
+          {isBoard && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16 }}>{get() ? "Selected: " + get() + " \u2014 click to deselect" : "Nothing selected \u2014 fine to skip"}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            {isBoard && <button className="hb" onClick={next} style={{ flex: 1, padding: 14, borderRadius: 10, border: "2px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Skip</button>}
+            <button className="hb" onClick={next} disabled={!ok} style={{ flex: 2, padding: 14, borderRadius: 10, border: "none", background: ok ? "#f0c040" : "rgba(255,255,255,0.1)", color: ok ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: ok ? "pointer" : "default" }}>
+              {isLast ? "Meet Your Tutors \u2192" : isBoard && get() ? "Save " + get() + " \u2192" : "Continue \u2192"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-
-  if (phase === "name" || phase === "checking") return wrap(<>
-    <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>WELCOME</div>
-    <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>What's your name?</h2>
-    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28 }}>Your tutors will use this throughout your sessions</p>
-    <input autoFocus value={p.name} onChange={e => upd("name", e.target.value)} onKeyDown={e => e.key === "Enter" && afterName()} placeholder="Enter your first name..." disabled={phase === "checking"}
-      style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 18, outline: "none", marginBottom: 20 }} />
-    <button className="hb" onClick={afterName} disabled={!p.name.trim() || phase === "checking"}
-      style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.name.trim() && phase !== "checking" ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.name.trim() ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-      {phase === "checking" ? "Checking..." : "Continue \u2192"}
-    </button>
-  </>);
-
-  if (phase === "year") return wrap(<>
-    <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
-    <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>Which year are you in?</h2>
-    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28 }}>Helps tutors prioritise the right content</p>
-    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{YEARS.map(y => <div key={y} className="so" onClick={() => upd("year", y)} style={{ flex: 1, padding: "14px", borderRadius: 10, border: `2px solid ${p.year === y ? "#f0c040" : "rgba(255,255,255,0.15)"}`, background: p.year === y ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: p.year === y ? "#f0c040" : "rgba(255,255,255,0.8)", fontSize: 15, fontWeight: p.year === y ? 700 : 400, cursor: "pointer", textAlign: "center" }}>{y}</div>)}</div>
-    <button className="hb" onClick={() => setPhase("tier")} disabled={!p.year} style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.year ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.year ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Continue {"\u2192"}</button>
-  </>);
-
-  if (phase === "tier") return wrap(<>
-    <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>SETUP</div>
-    <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>Foundation or Higher?</h2>
-    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28 }}>Applies to Maths & Science</p>
-    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>{TIERS.map(t => <div key={t} className="so" onClick={() => upd("tier", t)} style={{ flex: 1, padding: "14px", borderRadius: 10, border: `2px solid ${p.tier === t ? "#f0c040" : "rgba(255,255,255,0.15)"}`, background: p.tier === t ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: p.tier === t ? "#f0c040" : "rgba(255,255,255,0.8)", fontSize: 15, fontWeight: p.tier === t ? 700 : 400, cursor: "pointer", textAlign: "center" }}>{t}</div>)}</div>
-    <button className="hb" onClick={() => setPhase("subjects")} disabled={!p.tier} style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.tier ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.tier ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Continue {"\u2192"}</button>
-  </>);
-
-  if (phase === "subjects") return wrap(<>
-    <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>CHOOSE YOUR SUBJECTS</div>
-    <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>Which GCSEs are you taking?</h2>
-    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 20 }}>Pick as many as you like. You can change these later in Settings.</p>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20, maxHeight: 360, overflowY: "auto" }}>
-      {ALL_SUBJECT_LIST.map(s => {
-        const on = p.subjects.includes(s.id);
-        return <div key={s.id} className="so" onClick={() => toggleSub(s.id)} style={{ padding: "12px 14px", borderRadius: 10, border: `2px solid ${on ? "#f0c040" : "rgba(255,255,255,0.12)"}`, background: on ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.04)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all .15s" }}>
-          <span style={{ fontSize: 22 }}>{s.emoji}</span>
-          <div><div style={{ color: on ? "#f0c040" : "rgba(255,255,255,0.8)", fontWeight: on ? 700 : 400, fontSize: 13 }}>{s.label}</div><div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>{s.tutor.name}</div></div>
-          {on && <span style={{ marginLeft: "auto", color: "#f0c040", fontWeight: 700, fontSize: 16 }}>{"\u2713"}</span>}
-        </div>;
-      })}
-    </div>
-    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 12 }}>{p.subjects.length} subject{p.subjects.length !== 1 ? "s" : ""} selected</div>
-    <button className="hb" onClick={() => { if (p.subjects.length) { setBoardIdx(0); setPhase("boards"); } }} disabled={!p.subjects.length}
-      style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.subjects.length ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.subjects.length ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-      Continue {"\u2192"}
-    </button>
-  </>);
-
-  if (phase === "boards" && boardSub) return wrap(<>
-    <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>EXAM BOARDS {"\u00b7"} {boardIdx + 1}/{selectedSubs.length} {"\u00b7"} optional</div>
-    <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>{boardSub.emoji} {boardSub.label} exam board?</h2>
-    <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 20 }}>Skip if unsure {"\u2014"} your tutor will cover all boards.</p>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-      {BOARDS.map(b => {
-        const on = p.examBoards[boardSub.id] === b;
-        return <div key={b} className="so" onClick={() => setP(x => ({ ...x, examBoards: { ...x.examBoards, [boardSub.id]: on ? "" : b } }))} style={{ padding: "12px 14px", borderRadius: 10, border: `2px solid ${on ? "#f0c040" : "rgba(255,255,255,0.15)"}`, background: on ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: on ? "#f0c040" : "rgba(255,255,255,0.8)", fontWeight: on ? 700 : 400, cursor: "pointer", textAlign: "center", fontSize: 14 }}>{b}</div>;
-      })}
-    </div>
-    <div style={{ display: "flex", gap: 8 }}>
-      <button className="hb" onClick={nextBoard} style={{ flex: 1, padding: 14, borderRadius: 10, border: "2px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.6)", fontWeight: 700, cursor: "pointer" }}>Skip</button>
-      <button className="hb" onClick={nextBoard} style={{ flex: 2, padding: 14, borderRadius: 10, border: "none", background: "#f0c040", color: "#1a1a2e", fontWeight: 700, cursor: "pointer" }}>
-        {boardIdx === selectedSubs.length - 1 ? "Meet Your Tutors \u2192" : "Next \u2192"}
-      </button>
-    </div>
-  </>);
-
-  return null;
 }
 
 
@@ -972,7 +675,7 @@ function MemoryManager({ memory, profile, onClearSubject, onClearAll, onClose, o
             <div style={{ fontSize: 13, color: "#0369a1", fontWeight: 700, marginBottom: 4 }}>{"\ud83d\udcbe"} {totalSessions} session{totalSessions !== 1 ? "s" : ""} stored</div>
             <div style={{ fontSize: 12, color: "#0284c7", lineHeight: 1.6 }}>Memory persists in your browser. Export a backup regularly to be safe.</div>
           </div>
-          {ALL_SUBJECT_LIST.map(t => {
+          {SUBJECT_LIST.map(t => {
             const sums = getSessions(memory, t.id);
             return (
               <div key={t.id} style={{ marginBottom: 12, borderRadius: 14, border: "1px solid #f0f0f0", overflow: "hidden" }}>
@@ -1030,8 +733,7 @@ function SummaryModal({ subject, sessionData, onClose }) {
 }
 
 function Dashboard({ memory, mats, profile, onClose }) {
-  const subs = mySubjects(profile);
-  const allSums = Object.entries(memory.subjects || {}).flatMap(([id, sums]) => (sums || []).map(s => ({ ...s, tutor: ALL_SUBJECT_LIST.find(t => t.id === id) || { emoji: "", label: id, gradient: "#999", color: "#999" } }))).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const allSums = Object.entries(memory.subjects || {}).flatMap(([id, sums]) => (sums || []).map(s => ({ ...s, tutor: SUBJECT_LIST.find(t => t.id === id) || { emoji: "", label: id, gradient: "#999", color: "#999" } }))).sort((a, b) => new Date(b.date) - new Date(a.date));
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.85)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 760, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
@@ -1045,7 +747,7 @@ function Dashboard({ memory, mats, profile, onClose }) {
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-            {subs.map(t => {
+            {SUBJECT_LIST.map(t => {
               const sums = getSessions(memory, t.id), ls = sums[sums.length - 1], mc = (mats[t.id] || []).length;
               return (
                 <div key={t.id} style={{ borderRadius: 14, overflow: "hidden", border: "1px solid #eee" }}>
@@ -1076,15 +778,13 @@ function Dashboard({ memory, mats, profile, onClose }) {
    ═══════════════════════════════════════════════════════════════════ */
 
 function SettingsModal({ profile, onSave, onClose }) {
-  const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });
+  const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters } });
   const [tab, setTab] = useState("profile");
   const upd = (field, val) => setP(x => ({ ...x, [field]: val }));
   const updBoard = (sid, val) => setP(x => ({ ...x, examBoards: { ...x.examBoards, [sid]: val } }));
   const updChar = (sid, val) => setP(x => ({ ...x, tutorCharacters: { ...x.tutorCharacters, [sid]: val } }));
-  const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(s => s !== id) : [...x.subjects, id] }));
   function save() { onSave(p); }
-  const mySubs = p.subjects.map(id => SUBJECTS[id]).filter(Boolean);
-  const tabs = [{ id: "profile", label: "Profile", emoji: "\ud83d\udc64" }, { id: "subjects", label: "Subjects", emoji: "\ud83d\udcda" }, ...mySubs.map(s => ({ id: s.id, label: s.label, emoji: s.emoji }))];
+  const tabs = [{ id: "profile", label: "Profile", emoji: "\ud83d\udc64" }, ...SUBJECT_LIST.map(s => ({ id: s.id, label: s.label, emoji: s.emoji }))];
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.85)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 600, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
@@ -1095,8 +795,8 @@ function SettingsModal({ profile, onSave, onClose }) {
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", borderRadius: 10, padding: "7px 14px", cursor: "pointer", fontSize: 13 }}>{"\u2715"}</button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 4, padding: "10px 22px 0", overflowX: "auto", borderBottom: "1px solid #eee" }}>
-          {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "7px 12px", borderRadius: "10px 10px 0 0", border: "none", background: tab === t.id ? "#f5f4f0" : "transparent", color: tab === t.id ? "#1a1a2e" : "#999", fontWeight: tab === t.id ? 700 : 400, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>{t.emoji} {t.label}</button>)}
+        <div style={{ display: "flex", gap: 6, padding: "12px 22px 0", overflowX: "auto", borderBottom: "1px solid #eee" }}>
+          {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 14px", borderRadius: "10px 10px 0 0", border: "none", background: tab === t.id ? "#f5f4f0" : "transparent", color: tab === t.id ? "#1a1a2e" : "#999", fontWeight: tab === t.id ? 700 : 400, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>{t.emoji} {t.label}</button>)}
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
           {tab === "profile" && (<div>
@@ -1104,20 +804,7 @@ function SettingsModal({ profile, onSave, onClose }) {
             <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Year</div><div style={{ display: "flex", gap: 8 }}>{YEARS.map(y => <button key={y} onClick={() => upd("year", y)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.year === y ? "#f0c040" : "#e0e0e0"), background: p.year === y ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.year === y ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{y}</button>)}</div></div>
             <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Tier</div><div style={{ display: "flex", gap: 8 }}>{TIERS.map(t => <button key={t} onClick={() => upd("tier", t)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.tier === t ? "#f0c040" : "#e0e0e0"), background: p.tier === t ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.tier === t ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{t}</button>)}</div></div>
           </div>)}
-          {tab === "subjects" && (<div>
-            <div style={{ fontSize: 12, color: "#777", marginBottom: 14 }}>Tap to add or remove subjects. Changes take effect when you save.</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {ALL_SUBJECT_LIST.map(s => {
-                const on = p.subjects.includes(s.id);
-                return <div key={s.id} onClick={() => toggleSub(s.id)} style={{ padding: "10px 12px", borderRadius: 10, border: "2px solid " + (on ? s.color : "#e0e0e0"), background: on ? s.color + "12" : "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "all .15s" }}>
-                  <span style={{ fontSize: 20 }}>{s.emoji}</span>
-                  <div><div style={{ color: on ? s.color : "#666", fontWeight: on ? 700 : 400, fontSize: 12 }}>{s.label}</div><div style={{ color: "#aaa", fontSize: 10 }}>{s.tutor.name}</div></div>
-                  {on && <span style={{ marginLeft: "auto", color: s.color, fontWeight: 700 }}>{"\u2713"}</span>}
-                </div>;
-              })}
-            </div>
-          </div>)}
-          {tab !== "profile" && tab !== "subjects" && (() => {
+          {tab !== "profile" && (() => {
             const sub = SUBJECTS[tab]; if (!sub) return null;
             const board = p.examBoards?.[tab] || "";
             const char = p.tutorCharacters?.[tab] || "";
@@ -1232,18 +919,6 @@ export default function App() {
     setModal(null);
   }
 
-  // Switch to a different user
-  function switchUser() {
-    if (active && msgs.length >= 6) autoSave(active, msgs, curMats);
-    stopSpeaking();
-    setActiveRaw(null);
-    setSessions({});
-    setSbSynced(false);
-    setDbConnected(false);
-    setProfile(null);
-    saveProfile(null);
-  }
-
   // Supabase sync — load memory + profile settings from cloud
   useEffect(() => {
     if (profile && !sbSynced) {
@@ -1334,7 +1009,7 @@ export default function App() {
   const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
   const quickPrompts = convoMode ? ["Habl\u00e9mos en espa\u00f1ol", "\u00bfPodemos practicar conversaci\u00f3n?", "Correct my pronunciation"] : voiceMode ? ["Habl\u00e9mos en espa\u00f1ol", "Correct my pronunciation", ...basePrompts] : basePrompts;
 
-  if (!profile) return <Setup onDone={updateProfile} />;
+  if (!profile) return <Setup onDone={p => updateProfile({ ...p, tutorCharacters: {} })} />;
 
   return (
     <ErrorBoundary>
@@ -1367,9 +1042,8 @@ export default function App() {
           <div style={{ display: "flex", gap: 5 }}>
             {dbConnected && <div style={{ padding: "6px 10px", borderRadius: 20, background: "#1a1a2e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>{"\u2601\ufe0f"} Synced</div>}
             <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\u2699\ufe0f"}</button>
-            <button className="btn" onClick={() => setModal("memory")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83e\udde0"}{totalMem > 0 ? " " + totalMem : ""}</button>
-            <button className="btn" onClick={() => setModal("dash")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc68\u200d\ud83d\udc67"}</button>
-            <button className="btn" onClick={switchUser} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc64"}</button>
+            <button className="btn" onClick={() => setModal("memory")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83e\udde0"} Memory{totalMem > 0 ? " (" + totalMem + ")" : ""}</button>
+            <button className="btn" onClick={() => setModal("dash")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc68\u200d\ud83d\udc67"} Parent</button>
           </div>
         </div>
 
@@ -1379,7 +1053,7 @@ export default function App() {
             <h1 style={{ fontSize: 32, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 8 }}>Hello, {profile.name}.<br /><span style={{ color: "#888", fontWeight: 400 }}>Who's tutoring you today?</span></h1>
             <p style={{ color: "#999", fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory \u2014 your tutors remember your progress." : "Your tutors adapt to you and remember your progress after each session."}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 28 }}>
-              {mySubjects(profile).map((t, i) => {
+              {SUBJECT_LIST.map((t, i) => {
                 const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
                 return (
                   <div key={t.id} className="card" onClick={() => setActive(t.id)} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .08}s both` }}>
