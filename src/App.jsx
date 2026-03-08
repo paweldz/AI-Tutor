@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.0.1 (8 Mar 2026, 21:00)";
+const APP_VERSION = "3.1.0 (8 Mar 2026, 22:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -399,6 +399,34 @@ const SUBJECTS = {
   },
 };
 
+/* ═══════════════════════════════════════════════════════════════════
+   TOPIC REGISTRY — GCSE exam topics per subject (based on common specs)
+   ═══════════════════════════════════════════════════════════════════ */
+
+const SUBJECT_TOPICS = {
+  spanish: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Speaking skills", "Writing skills", "Listening skills", "Reading comprehension", "Translation skills"],
+  french: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Speaking skills", "Writing skills", "Listening skills", "Reading comprehension", "Translation skills"],
+  german: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Grammar: cases & word order", "Speaking skills", "Writing skills", "Listening skills", "Translation skills"],
+  math: ["Number: fractions, decimals, percentages", "Number: indices & surds", "Algebra: expressions & equations", "Algebra: graphs & functions", "Algebra: sequences", "Algebra: inequalities", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Geometry: circle theorems", "Geometry: vectors", "Trigonometry", "Probability", "Statistics: averages & spread", "Statistics: charts & diagrams"],
+  english: ["Language Paper 1: fiction reading", "Language Paper 1: creative writing", "Language Paper 2: non-fiction reading", "Language Paper 2: viewpoint writing", "Spoken language assessment", "Literature: Shakespeare", "Literature: 19th century novel", "Literature: modern text", "Literature: poetry anthology", "Literature: unseen poetry", "Analytical writing techniques", "Spelling, punctuation & grammar", "Quotation & evidence skills", "Comparative writing"],
+  science: ["Biology: cell biology", "Biology: organisation", "Biology: infection & disease", "Biology: bioenergetics", "Biology: homeostasis", "Biology: inheritance & variation", "Biology: ecology", "Chemistry: atomic structure", "Chemistry: bonding & structure", "Chemistry: quantitative chemistry", "Chemistry: chemical changes", "Chemistry: energy changes", "Chemistry: rates & equilibrium", "Chemistry: organic chemistry", "Chemistry: chemical analysis", "Chemistry: atmosphere & resources", "Physics: energy", "Physics: electricity", "Physics: particle model", "Physics: atomic structure", "Physics: forces", "Physics: waves", "Physics: magnetism", "Physics: space"],
+  history: ["Medicine through time", "Crime & punishment", "Warfare & British society", "Elizabethan England", "Norman England", "American West", "Weimar & Nazi Germany", "Cold War", "Vietnam War", "Source analysis skills", "Extended writing skills", "Historical interpretations"],
+  geography: ["Natural hazards", "Weather hazards & climate change", "Ecosystems & tropical rainforests", "Hot deserts", "Cold environments", "River landscapes", "Coastal landscapes", "Urban issues & challenges", "Changing economic world", "Resource management", "Energy", "Water & food", "Fieldwork skills", "Map skills & data interpretation"],
+  computer_science: ["Computational thinking", "Algorithms: searching & sorting", "Programming fundamentals", "Data types & structures", "Boolean logic", "Systems architecture", "Memory & storage", "Networks & protocols", "Network security", "Databases & SQL", "Ethical & legal issues", "Software development lifecycle"],
+  religious_studies: ["Christian beliefs & teachings", "Christian practices", "Islam: beliefs & teachings", "Islam: practices", "Relationships & families", "Religion & life", "Peace & conflict", "Crime & punishment", "Human rights", "Philosophical arguments for God", "Revelation & religious experience", "Evaluation & argument skills"],
+  business: ["Enterprise & entrepreneurship", "Spotting a business opportunity", "Marketing mix", "Business finance", "Human resources", "Business operations", "Business growth", "Globalisation", "Ethics & environment", "Economic climate", "Cash flow & break-even", "Business plans"],
+  art: ["Drawing & mark-making", "Painting techniques", "Printmaking", "3D & sculpture", "Photography & digital", "Artist research & analysis", "Formal elements", "Annotation skills", "Personal portfolio", "Externally set assignment", "Contextual understanding", "Creative development"],
+  music: ["Rhythm & metre", "Melody & harmony", "Texture & structure", "Timbre & dynamics", "Set work analysis", "Musical dictation", "Composition techniques", "Performance skills", "Music technology", "World music traditions", "Popular music styles", "Classical traditions"],
+  drama: ["Theatrical skills & techniques", "Devising theatre", "Performing from text", "Set text study", "Stage design & lighting", "Costume & makeup", "Evaluation & analysis", "Practitioners: Brecht", "Practitioners: Stanislavski", "Physical theatre", "Script interpretation", "Live theatre review"],
+  dt: ["Core technical principles", "Specialist technical principles", "Materials: timber", "Materials: metals & alloys", "Materials: polymers", "Materials: textiles", "Manufacturing processes", "Design principles", "Environmental impact", "Systems & electronics", "Iterative design process", "NEA project skills"],
+  pe: ["Skeletal system", "Muscular system", "Cardiovascular system", "Respiratory system", "Movement analysis", "Components of fitness", "Training methods & principles", "Injury prevention", "Sport psychology", "Socio-cultural influences", "Health & wellbeing", "Data analysis in sport"],
+  psychology: ["Memory", "Perception", "Development", "Research methods", "Social influence", "Language, thought & communication", "Brain & neuropsychology", "Psychological problems", "Criminal psychology", "Sleep & dreaming", "Ethical issues", "Data handling & statistics"],
+  economics: ["Supply & demand", "Price determination", "Market failure", "Government intervention", "Types of economy", "GDP & economic growth", "Unemployment & inflation", "Fiscal policy", "Monetary policy", "International trade", "Exchange rates", "Development economics"],
+  sociology: ["Socialisation & culture", "Social structures & stratification", "Families & households", "Education", "Crime & deviance", "Social research methods", "Media", "Power & politics", "Functionalism", "Marxism", "Feminism", "Interactionism"],
+  latin: ["Nouns: all declensions", "Verbs: present system", "Verbs: perfect system", "Adjectives & adverbs", "Pronouns & prepositions", "Subordinate clauses", "Indirect statement", "Participles & ablative absolute", "Translation: Latin to English", "Translation: English to Latin", "Prose literature set text", "Civilisation & Roman life"],
+  astronomy: ["Earth, Moon & Sun", "The solar system", "Lenses & telescopes", "Electromagnetic spectrum", "Stellar evolution", "HR diagrams", "Galaxies & cosmology", "The Big Bang", "Observational techniques", "Space exploration", "Gravity & orbits", "Astrophotography & data"],
+};
+
 /* Derived helpers */
 const ALL_SUBJECT_IDS   = Object.keys(SUBJECTS);
 const ALL_SUBJECT_LIST  = Object.values(SUBJECTS);
@@ -540,6 +568,23 @@ function getConfidence(memory, sid) {
 function avgConfidence(scores) {
   const vals = Object.values(scores).filter(v => typeof v === "number");
   return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : -1;
+}
+
+/* Topic progress tracking — { subjectId: { topicName: { studied, lastDate, confidence } } } */
+const TOPIC_KEY = "gcse_topics_v1";
+function loadTopicProgress() { return readJSON(TOPIC_KEY, {}); }
+function saveTopicProgress(data) { writeJSON(TOPIC_KEY, data); }
+function recordTopicStudy(prev, sid, topic, confidence) {
+  const old = prev[sid]?.[topic] || { studied: 0, confidence: 0 };
+  return { ...prev, [sid]: { ...prev[sid], [topic]: { studied: old.studied + 1, lastDate: todayStr(), confidence: typeof confidence === "number" ? confidence : old.confidence } } };
+}
+function getTopicProgress(data, sid) { return data[sid] || {}; }
+function topicPct(data, sid) {
+  const topics = SUBJECT_TOPICS[sid] || [];
+  if (!topics.length) return 0;
+  const prog = data[sid] || {};
+  const studied = topics.filter(t => prog[t]?.studied > 0).length;
+  return Math.round(studied / topics.length * 100);
 }
 
 
@@ -1239,6 +1284,57 @@ function SettingsModal({ profile, onSave, onClose }) {
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   TOPICS PANEL — exam topic breakdown with progress tracking
+   ═══════════════════════════════════════════════════════════════════ */
+
+function TopicsPanel({ subject, profile, topicData, onStudy, onClose }) {
+  const topics = SUBJECT_TOPICS[subject.id] || [];
+  const prog = getTopicProgress(topicData, subject.id);
+  const studied = topics.filter(t => prog[t]?.studied > 0).length;
+  const pct = topics.length ? Math.round(studied / topics.length * 100) : 0;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.85)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
+        <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>EXAM TOPICS</div>
+            <div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div>
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>{studied}/{topics.length} topics covered \u00b7 {pct}% complete</div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
+        </div>
+        <div style={{ padding: "6px 22px 8px" }}>
+          <div style={{ height: 6, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: subject.gradient, width: pct + "%", transition: "width .5s" }} /></div>
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, padding: "8px 22px 22px" }}>
+          {topics.map((topic, i) => {
+            const p = prog[topic];
+            const conf = p?.confidence || 0;
+            const count = p?.studied || 0;
+            const confColor = conf >= 70 ? "#22c55e" : conf >= 40 ? "#f59e0b" : conf > 0 ? "#ef4444" : "#e0e0e0";
+            return (
+              <div key={topic} onClick={() => onStudy(topic)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid #f0f0f0", marginBottom: 6, cursor: "pointer", background: count > 0 ? "#fafffe" : "#fff", transition: "all .15s" }} className="so">
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: count > 0 ? confColor + "20" : "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: count > 0 ? confColor : "#ccc", flexShrink: 0 }}>
+                  {count > 0 ? (conf >= 70 ? "\u2713" : conf >= 40 ? "\u25cf" : "!") : (i + 1)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a2e" }}>{topic}</div>
+                  {count > 0 && <div style={{ fontSize: 10, color: "#999", marginTop: 1 }}>Studied {count}x {p.lastDate ? "\u00b7 last " + p.lastDate : ""}{conf > 0 ? " \u00b7 " + conf + "%" : ""}</div>}
+                </div>
+                {count > 0 && <div style={{ width: 36, height: 4, borderRadius: 2, background: "#eee", flexShrink: 0 }}><div style={{ height: "100%", borderRadius: 2, background: confColor, width: conf + "%" }} /></div>}
+                <div style={{ color: subject.color, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{count > 0 ? "Review" : "Start"} {"\u203a"}</div>
+              </div>
+            );
+          })}
+          {topics.length === 0 && <div style={{ textAlign: "center", padding: 30, color: "#aaa" }}>No topic breakdown available for this subject yet.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    QUICK QUIZ — 5 rapid-fire questions, AI-generated, instant scoring
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -1365,7 +1461,9 @@ export default function App() {
   const [dbConnected, setDbConnected] = useState(false);
   const [xpData, setXpData] = useState(loadXP);
   const [streakData, setStreakData] = useState(loadStreaks);
-  const [quizSubject, setQuizSubject] = useState(null); // subject object for quiz modal
+  const [quizSubject, setQuizSubject] = useState(null);
+  const [topicData, setTopicData] = useState(loadTopicProgress);
+  const [topicsFor, setTopicsFor] = useState(null); // subject object for topics panel
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -1446,6 +1544,20 @@ export default function App() {
     setStreakData(prev => recordActivity(prev));
   }
 
+  // Persist topics
+  useEffect(() => { saveTopicProgress(topicData); }, [topicData]);
+
+  // Start a focused session on a specific topic
+  function studyTopic(sub, topic) {
+    setTopicsFor(null);
+    setActive(sub.id);
+    setTopicData(prev => recordTopicStudy(prev, sub.id, topic));
+    // Send an opening message asking to study this topic
+    setTimeout(() => {
+      if (sendRef.current) sendRef.current("I'd like to study: " + topic);
+    }, 800);
+  }
+
   // Save profile to both localStorage and Supabase
   function updateProfile(p) {
     saveProfile(p);
@@ -1484,6 +1596,21 @@ export default function App() {
             return merged;
           });
           setDbConnected(true);
+        }
+        // Load topic progress from cloud
+        if (settings?.topics) {
+          setTopicData(prev => {
+            const merged = { ...prev };
+            for (const [sid, topics] of Object.entries(settings.topics)) {
+              merged[sid] = { ...merged[sid] };
+              for (const [topic, data] of Object.entries(topics)) {
+                const local = merged[sid][topic];
+                if (!local || (data.studied || 0) > (local.studied || 0)) merged[sid][topic] = data;
+              }
+            }
+            saveTopicProgress(merged);
+            return merged;
+          });
         }
       }).catch(() => {});
     }
@@ -1541,6 +1668,17 @@ export default function App() {
       if (profile) sbSave(profile.name, active, data.date, JSON.stringify(data));
       setShowSum(data);
       gainXP(25, "Session summary");
+      // Auto-update topic progress from confidence scores
+      if (data.confidenceScores) {
+        setTopicData(prev => {
+          let updated = prev;
+          for (const [topic, conf] of Object.entries(data.confidenceScores)) {
+            updated = recordTopicStudy(updated, active, topic, conf);
+          }
+          if (profile) sbSaveSetting(profile.name, "topics", updated);
+          return updated;
+        });
+      }
     } catch (e) { console.error("Summary failed:", e); } finally { setSumLoading(false); }
   }
 
@@ -1577,6 +1715,7 @@ export default function App() {
         {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
         {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
+        {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => studyTopic(topicsFor, topic)} onClose={() => setTopicsFor(null)} />}
 
         {/* Header */}
         <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
@@ -1634,7 +1773,10 @@ export default function App() {
                 const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
                 const conf = getConfidence(memory, t.id);
                 const avg = avgConfidence(conf);
-                const topics = Object.entries(conf).slice(0, 4);
+                const confTopics = Object.entries(conf).slice(0, 4);
+                const tpct = topicPct(topicData, t.id);
+                const tTotal = (SUBJECT_TOPICS[t.id] || []).length;
+                const tDone = Object.values(getTopicProgress(topicData, t.id)).filter(v => v.studied > 0).length;
                 return (
                   <div key={t.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both` }}>
                     <div className="card" onClick={() => setActive(t.id)} style={{ background: t.gradient, padding: "18px 16px 14px", cursor: "pointer" }}>
@@ -1646,10 +1788,14 @@ export default function App() {
                       <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{t.label}{bd ? " \u00b7 " + bd : ""}</div>
                     </div>
                     <div style={{ background: "#fff", padding: "10px 16px" }}>
-                      {topics.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>{topics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 16, borderRadius: 2, background: pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444" }} title={topic + ": " + pct + "%"} />)}</div>}
+                      {tTotal > 0 && <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ height: 4, borderRadius: 2, background: "#eee" }}><div style={{ height: "100%", borderRadius: 2, background: t.color, width: tpct + "%", transition: "width .5s" }} /></div></div>}
+                      {confTopics.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>{confTopics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 14, borderRadius: 2, background: pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444" }} title={topic + ": " + pct + "%"} />)}</div>}
                       <div style={{ fontSize: 11, color: t.color, fontWeight: 700, marginBottom: 4 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "")}</div>
-                      {mc > 0 && <div style={{ fontSize: 10, color: "#888" }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
-                      <button onClick={e => { e.stopPropagation(); setQuizSubject(t); }} style={{ marginTop: 6, width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: "transparent", color: t.color, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{"\u26a1"} Quick Quiz</button>
+                      {mc > 0 && <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <button onClick={e => { e.stopPropagation(); setTopicsFor(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: "transparent", color: t.color, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\ud83d\udcdd"} Topics</button>
+                        <button onClick={e => { e.stopPropagation(); setQuizSubject(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: t.color, color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\u26a1"} Quiz</button>
+                      </div>
                     </div>
                   </div>
                 );
