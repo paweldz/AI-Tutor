@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     // Decode base64 audio to Buffer
     const audioBuffer = Buffer.from(audio, "base64");
 
-    if (audioBuffer.length < 100) {
+    if (audioBuffer.length < 4000) {
       return res.status(400).json({ error: "Audio too short — try speaking for longer" });
     }
 
@@ -46,6 +46,10 @@ export default async function handler(req, res) {
     formData.append("file", file);
     formData.append("model", "whisper-1");
     if (language) formData.append("language", language); // e.g. "es", "fr", "de"
+    // Prompt hint reduces hallucinations by grounding Whisper in the expected context
+    const langNames = { es: "Spanish", fr: "French", de: "German", en: "English" };
+    const hint = langNames[language] || "";
+    formData.append("prompt", hint ? `A GCSE student is practising ${hint} with their tutor.` : "A GCSE student is speaking with their tutor.");
 
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
@@ -62,7 +66,22 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
-    return res.status(200).json({ text: data.text || "" });
+    const text = (data.text || "").trim();
+
+    // Whisper hallucinates subtitle/credit text when audio is too quiet or short
+    const HALLUCINATIONS = [
+      "sous-titres", "amara.org", "subtitles by", "translated by",
+      "transcribed by", "caption", "sous titres", "sottotitoli",
+      "untertitel", "subscri", "thank you for watching",
+      "thanks for watching", "merci d'avoir regard",
+      "please subscribe", "like and subscribe",
+    ];
+    const lower = text.toLowerCase();
+    if (!text || HALLUCINATIONS.some(h => lower.includes(h))) {
+      return res.status(200).json({ text: "", filtered: true });
+    }
+
+    return res.status(200).json({ text });
   } catch (e) {
     console.error("Transcribe proxy error:", e);
     return res.status(500).json({ error: "Transcription failed: " + e.message });
