@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.1.1 (8 Mar 2026, 22:30)";
+const APP_VERSION = "3.1.3 (9 Mar 2026, 10:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -713,26 +713,35 @@ const SUMMARY_PROMPT = `You are writing a session summary. Return ONLY valid JSO
 {"date":"today DD Month YYYY","subject":"subject id","topics":["t1","t2"],"strengths":["s1"],"weaknesses":["w1"],"confidenceScores":{"topic1":70,"topic2":50},"messageCount":12,"examQuestionsAttempted":0,"rawSummaryText":"3-4 paragraph summary covering: topics, strengths, areas needing work, confidence levels, 3 priorities for next session."}`;
 
 async function apiSend(systemPrompt, messages, maxTokens = 1200) {
-  let raw = "", status = 0;
-  try {
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages }),
-    });
-    status = r.status; raw = await r.text();
-  } catch (e) { throw new Error("Network error: " + e.message + ". Check your internet connection."); }
+  const MAX_RETRIES = 4;
+  const body = JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let raw = "", status = 0;
+    try {
+      const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+      status = r.status; raw = await r.text();
+    } catch (e) {
+      if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue; }
+      throw new Error("Network error: " + e.message + ". Check your internet connection.");
+    }
 
-  let data; try { data = JSON.parse(raw); } catch { throw new Error("HTTP " + status + " \u2014 invalid response from API."); }
-  if (data.error) {
-    const msg = data.error.message || data.error.type || "Unknown";
-    if (status === 401) throw new Error("API key issue \u2014 check ANTHROPIC_API_KEY in Vercel settings.");
-    if (status === 429) throw new Error("Rate limited \u2014 wait a moment and try again.");
-    if (status === 529) throw new Error("Anthropic servers are busy \u2014 try again shortly.");
-    throw new Error("API error (" + status + "): " + msg);
+    // Retry on rate limit or overload BEFORE parsing — catches all 429/529 regardless of body
+    if ((status === 429 || status === 529) && attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, (attempt + 1) * 2500)); // 2.5s, 5s, 7.5s, 10s
+      continue;
+    }
+
+    let data; try { data = JSON.parse(raw); } catch { throw new Error("HTTP " + status + " \u2014 invalid response from API."); }
+    if (data.error) {
+      const msg = data.error.message || data.error.type || "Unknown";
+      if (status === 401) throw new Error("API key issue \u2014 check ANTHROPIC_API_KEY in Vercel settings.");
+      if (status === 429) throw new Error("Busy \u2014 please try again in a moment.");
+      if (status === 529) throw new Error("Busy \u2014 please try again in a moment.");
+      throw new Error("API error (" + status + "): " + msg);
+    }
+    if (!data.content) throw new Error("Unexpected response (" + status + ").");
+    return data.content.map(b => b.text || "").join("");
   }
-  if (!data.content) throw new Error("Unexpected response (" + status + ").");
-  return data.content.map(b => b.text || "").join("");
 }
 
 async function apiSummary(systemPrompt, chatMessages) {
