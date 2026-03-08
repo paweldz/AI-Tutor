@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.0.0 (8 Mar 2026, 20:30)";
+const APP_VERSION = "3.0.1 (8 Mar 2026, 21:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -379,6 +379,20 @@ const SUBJECTS = {
       let s = "\nLATIN: Practice translation both ways. Drill declensions and conjugations systematically. Use etymology to make vocab memorable. Cover set texts and civilisation content.";
       if (board === "OCR") s += " OCR: 3 components \u2014 Language, Prose Literature, Civilisation/Verse.";
       else if (board === "WJEC") s += " WJEC/Eduqas: Latin Language + Literature.";
+      return s;
+    },
+    quickPrompts: stdQuickPrompts,
+  },
+
+  astronomy: {
+    id: "astronomy", label: "Astronomy", emoji: "\ud83d\udd2d",
+    tutor: { name: "Dr. Starling" },
+    color: "#1a1a5a", gradient: "linear-gradient(135deg,#1a1a5a,#3a3a9a)", bg: "#f3f3fd",
+    description: "Solar system, stars & cosmology",
+    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Starling", p, board, memCount, "Planets, stars, or the universe today?"); },
+    systemPromptSpecific(board, tier) {
+      let s = "\nASTRONOMY: Use scale analogies to make distances relatable. Cover observational techniques, the solar system, stellar evolution, and cosmology. Encourage diagram sketching for orbits and HR diagrams.";
+      if (board === "Edexcel") s += " Edexcel: 2 papers, practical astronomy skills, use of telescopes.";
       return s;
     },
     quickPrompts: stdQuickPrompts,
@@ -1569,7 +1583,7 @@ export default function App() {
           {active && <button onClick={() => setActive(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#666", padding: "4px 8px", borderRadius: 8 }} aria-label="Back">{"\u2190"}</button>}
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 10, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase" }}>{profile.name} {"\u00b7"} {profile.year} {"\u00b7"} {profile.tier}{autoSumming ? " \u00b7 saving memory..." : ""}</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>{active ? subject.emoji + " " + subject.tutor.name : "Your Tutor Hub"}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>{active ? subject.emoji + " " + subject.tutor.name : "Your Tutor Hub by Korona Lab \u00ae"}</div>
           </div>
           {active && (
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
