@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.1.0 (8 Mar 2026, 22:00)";
+const APP_VERSION = "3.1.1 (8 Mar 2026, 22:30)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,6 +30,60 @@ textarea { outline: none; }
 .so:hover { transform: scale(1.03); }
 @keyframes mp { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4) } 50% { box-shadow: 0 0 0 10px rgba(220,38,38,0) } }
 `;
+
+/* Simple markdown → React for chat bubbles (bold, italic, bullet lists) */
+function renderMd(text) {
+  if (!text) return text;
+  // Split into lines for list handling
+  const lines = text.split("\n");
+  const result = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // Bullet list
+    if (/^[\-\*]\s/.test(line.trim())) {
+      const items = [];
+      while (i < lines.length && /^[\-\*]\s/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[\-\*]\s+/, ""));
+        i++;
+      }
+      result.push({ type: "ul", items });
+      continue;
+    }
+    // Numbered list
+    if (/^\d+[\.\)]\s/.test(line.trim())) {
+      const items = [];
+      while (i < lines.length && /^\d+[\.\)]\s/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+[\.\)]\s+/, ""));
+        i++;
+      }
+      result.push({ type: "ol", items });
+      continue;
+    }
+    result.push({ type: "line", text: line });
+    i++;
+  }
+  return result.map((block, bi) => {
+    if (block.type === "ul") return <ul key={bi} style={{ margin: "6px 0", paddingLeft: 20 }}>{block.items.map((item, ii) => <li key={ii} style={{ marginBottom: 3 }}>{inlineMd(item)}</li>)}</ul>;
+    if (block.type === "ol") return <ol key={bi} style={{ margin: "6px 0", paddingLeft: 20 }}>{block.items.map((item, ii) => <li key={ii} style={{ marginBottom: 3 }}>{inlineMd(item)}</li>)}</ol>;
+    return <span key={bi}>{bi > 0 && "\n"}{inlineMd(block.text)}</span>;
+  });
+}
+function inlineMd(text) {
+  // Replace **bold**, *italic*, `code`
+  const parts = [];
+  const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  let last = 0, match;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match[2]) parts.push(<strong key={match.index}>{match[2]}</strong>);
+    else if (match[3]) parts.push(<em key={match.index}>{match[3]}</em>);
+    else if (match[4]) parts.push(<code key={match.index} style={{ background: "rgba(0,0,0,0.06)", padding: "1px 4px", borderRadius: 4, fontSize: "0.9em" }}>{match[4]}</code>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length ? parts : text;
+}
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1816,7 +1870,7 @@ export default function App() {
                 {msgs.map((m, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 10, animation: "mi .25s ease" }}>
                     <div style={{ maxWidth: "78%", position: "relative" }}>
-                      <div style={{ padding: "11px 15px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? subject.color : "#fff", color: m.role === "user" ? "#fff" : "#1a1a2e", fontSize: 14, lineHeight: 1.65, boxShadow: m.role === "user" ? `0 4px 14px ${subject.color}40` : "0 2px 10px rgba(0,0,0,0.07)", border: m.role === "user" ? "none" : "1px solid rgba(0,0,0,0.07)", whiteSpace: "pre-wrap" }}>{m.content}</div>
+                      <div style={{ padding: "11px 15px", borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role === "user" ? subject.color : "#fff", color: m.role === "user" ? "#fff" : "#1a1a2e", fontSize: 14, lineHeight: 1.65, boxShadow: m.role === "user" ? `0 4px 14px ${subject.color}40` : "0 2px 10px rgba(0,0,0,0.07)", border: m.role === "user" ? "none" : "1px solid rgba(0,0,0,0.07)", whiteSpace: "pre-wrap" }}>{m.role === "assistant" ? renderMd(m.content) : m.content}</div>
                       {voiceCfg && m.role === "assistant" && !m.content.startsWith("\u274c") && (
                         <button onClick={() => { if (speaking) stopSpeaking(); else { setSpeaking(true); speakText(m.content, voiceCfg, () => setSpeaking(false)); } }}
                           style={{ position: "absolute", bottom: -4, right: -4, width: 26, height: 26, borderRadius: "50%", border: "1px solid #eee", background: "#fff", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.1)" }}
