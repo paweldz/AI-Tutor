@@ -38,7 +38,12 @@ export default async function handler(req, res) {
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch {
+      // Anthropic sometimes returns non-JSON on 429/529
+      data = { error: { type: "api_error", message: text.slice(0, 200) } };
+    }
 
     // Pass through the status code so the client can detect 429, 529, etc.
     return res.status(response.status).json(data);
