@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "2.5.0 (8 Mar 2026, 18:45)";
+const APP_VERSION = "3.0.0 (8 Mar 2026, 20:30)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -446,6 +446,86 @@ function importData(jsonStr) {
   if (d._format !== "gcse-tutor-hub") throw new Error("Not a GCSE Tutor Hub backup file.");
   if (!d.version || d.version < 2) throw new Error("Backup is from an older version.");
   return { profile: d.profile, memory: d.memory };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   STREAKS & XP — gamification layer
+   ═══════════════════════════════════════════════════════════════════ */
+
+const XP_KEYS = { xp: "gcse_xp_v1", streaks: "gcse_streaks_v1" };
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function loadXP() { return readJSON(XP_KEYS.xp, { total: 0, history: [] }); }
+function saveXP(data) { writeJSON(XP_KEYS.xp, data); }
+function addXP(prev, amount, reason) {
+  const entry = { amount, reason, date: todayStr(), ts: Date.now() };
+  return { total: prev.total + amount, history: [...prev.history.slice(-200), entry] };
+}
+
+function xpLevel(total) {
+  // Level 1 = 0xp, Level 2 = 100xp, Level 3 = 250xp, Level 4 = 450xp, etc.
+  if (total < 100) return { level: 1, title: "Beginner", current: total, next: 100 };
+  if (total < 250) return { level: 2, title: "Learner", current: total - 100, next: 150 };
+  if (total < 500) return { level: 3, title: "Explorer", current: total - 250, next: 250 };
+  if (total < 850) return { level: 4, title: "Scholar", current: total - 500, next: 350 };
+  if (total < 1350) return { level: 5, title: "Achiever", current: total - 850, next: 500 };
+  if (total < 2000) return { level: 6, title: "Expert", current: total - 1350, next: 650 };
+  if (total < 3000) return { level: 7, title: "Master", current: total - 2000, next: 1000 };
+  if (total < 4500) return { level: 8, title: "Champion", current: total - 3000, next: 1500 };
+  if (total < 7000) return { level: 9, title: "Legend", current: total - 4500, next: 2500 };
+  return { level: 10, title: "GCSE Hero", current: total - 7000, next: 999999 };
+}
+
+const LEVEL_EMOJIS = ["", "\ud83c\udf31", "\ud83c\udf3f", "\ud83c\udf3b", "\u2b50", "\ud83c\udf1f", "\ud83d\udd25", "\ud83d\udc8e", "\ud83d\udc51", "\ud83c\udf1f", "\ud83c\udfc6"];
+
+function loadStreaks() { return readJSON(XP_KEYS.streaks, { dates: [] }); }
+function saveStreaks(data) { writeJSON(XP_KEYS.streaks, data); }
+function recordActivity(streaks) {
+  const today = todayStr();
+  if (streaks.dates.includes(today)) return streaks;
+  return { dates: [...streaks.dates.slice(-60), today] };
+}
+function calcStreak(dates) {
+  if (!dates.length) return 0;
+  const sorted = [...dates].sort().reverse();
+  const today = todayStr();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+  let streak = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1]); prev.setDate(prev.getDate() - 1);
+    if (sorted[i] === prev.toISOString().slice(0, 10)) streak++;
+    else break;
+  }
+  return streak;
+}
+function weekHeatmap(dates) {
+  const map = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const ds = d.toISOString().slice(0, 10);
+    const day = d.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2);
+    map.push({ date: ds, day, active: dates.includes(ds) });
+  }
+  return map;
+}
+
+/* Extract latest confidence scores across all subjects from memory */
+function getConfidence(memory, sid) {
+  const sessions = getSessions(memory, sid);
+  if (!sessions.length) return {};
+  // merge all confidence scores, latest takes priority
+  const merged = {};
+  for (const s of sessions) {
+    if (s.confidenceScores) Object.assign(merged, s.confidenceScores);
+  }
+  return merged;
+}
+function avgConfidence(scores) {
+  const vals = Object.values(scores).filter(v => typeof v === "number");
+  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : -1;
 }
 
 
@@ -1145,6 +1225,110 @@ function SettingsModal({ profile, onSave, onClose }) {
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   QUICK QUIZ — 5 rapid-fire questions, AI-generated, instant scoring
+   ═══════════════════════════════════════════════════════════════════ */
+
+function QuickQuiz({ subject, profile, onClose, onXP }) {
+  const [phase, setPhase] = useState("loading"); // "loading"|"question"|"result"
+  const [questions, setQuestions] = useState([]);
+  const [qi, setQi] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    const board = profile.examBoards?.[subject.id] || "";
+    const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
+    const prompt = `Generate exactly 5 multiple-choice questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix easy and medium difficulty. Return ONLY valid JSON array (no markdown, no backticks):\n[{"q":"question text","options":["A","B","C","D"],"correct":0,"explanation":"brief explanation"}]\nwhere correct is the 0-based index of the right answer.`;
+    apiSend(sys, [{ role: "user", content: prompt }], 1200).then(raw => {
+      try {
+        const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed) && parsed.length >= 3) { setQuestions(parsed.slice(0, 5)); setPhase("question"); }
+        else throw new Error("bad format");
+      } catch { setErr("Couldn't generate quiz. Try again!"); setPhase("result"); }
+    }).catch(e => { setErr(e.message); setPhase("result"); });
+  }, []);
+
+  function answer(idx) {
+    const correct = questions[qi].correct === idx;
+    const newAnswers = [...answers, { chosen: idx, correct }];
+    setAnswers(newAnswers);
+    if (correct) onXP(20, "Quiz correct answer");
+    setTimeout(() => {
+      if (qi < questions.length - 1) setQi(qi + 1);
+      else { onXP(30, "Quiz completed"); setPhase("result"); }
+    }, 1200);
+  }
+
+  const score = answers.filter(a => a.correct).length;
+  const total = questions.length;
+  const q = questions[qi];
+  const answered = answers.length > qi;
+  const pct = total ? Math.round(score / total * 100) : 0;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 520, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
+        <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>QUICK QUIZ</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
+          {phase === "question" && <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{qi + 1}/{total}</div>}
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
+        </div>
+
+        <div style={{ padding: 22 }}>
+          {phase === "loading" && (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83e\udde0"}</div>
+              <div style={{ color: "#666", fontSize: 14 }}>Generating your quiz...</div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div>
+            </div>
+          )}
+
+          {phase === "question" && q && (
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 18, lineHeight: 1.6 }}>{q.q}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {q.options.map((opt, oi) => {
+                  const wasChosen = answered && answers[qi]?.chosen === oi;
+                  const isCorrect = q.correct === oi;
+                  const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
+                  const border = !answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0";
+                  return <div key={oi} onClick={() => !answered && answer(oi)} style={{ padding: "12px 16px", borderRadius: 12, border: "2px solid " + border, background: bg, cursor: answered ? "default" : "pointer", fontSize: 14, color: "#333", transition: "all .2s", display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 26, height: 26, borderRadius: "50%", background: !answered ? subject.color + "20" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#eee", color: !answered ? subject.color : isCorrect || wasChosen ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
+                    {opt}
+                  </div>;
+                })}
+              </div>
+              {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 20 : 8, height: 8, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+            </div>
+          )}
+
+          {phase === "result" && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              {err ? <><div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26a0\ufe0f"}</div><div style={{ color: "#666", marginBottom: 16 }}>{err}</div></> : <>
+                <div style={{ fontSize: 48, marginBottom: 8 }}>{pct >= 80 ? "\ud83c\udf89" : pct >= 60 ? "\ud83d\udc4d" : pct >= 40 ? "\ud83d\udcaa" : "\ud83d\udca1"}</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
+                <div style={{ fontSize: 14, color: "#888", marginBottom: 6 }}>{pct >= 80 ? "Excellent!" : pct >= 60 ? "Good job!" : pct >= 40 ? "Getting there!" : "Keep practising!"}</div>
+                <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 20 }}>+{score * 20 + 30} XP earned</div>
+                {questions.map((q, i) => (
+                  <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 6, fontSize: 12 }}>
+                    <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span> {q.q.slice(0, 60)}{q.q.length > 60 ? "..." : ""}
+                    {!answers[i]?.correct && <span style={{ color: "#666" }}> \u2014 {q.options[q.correct]}</span>}
+                  </div>
+                ))}
+              </>}
+              <button onClick={onClose} style={{ marginTop: 16, padding: "12px 28px", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -1164,9 +1348,16 @@ export default function App() {
   const [sumLoading, setSumLoading] = useState(false);
   const [autoSumming, setAutoSumming] = useState(false);
   const [sbSynced, setSbSynced] = useState(false);
-  const [dbConnected, setDbConnected] = useState(false); // tracks if Supabase is configured
+  const [dbConnected, setDbConnected] = useState(false);
+  const [xpData, setXpData] = useState(loadXP);
+  const [streakData, setStreakData] = useState(loadStreaks);
+  const [quizSubject, setQuizSubject] = useState(null); // subject object for quiz modal
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  const lv = xpLevel(xpData.total);
+  const streak = calcStreak(streakData.dates);
+  const week = weekHeatmap(streakData.dates);
 
   const subject = active ? SUBJECTS[active] : null;
   const sess = active ? (sessions[active] || {}) : {};
@@ -1226,6 +1417,20 @@ export default function App() {
 
   // Persist memory
   useEffect(() => { saveMemory(memory); }, [memory]);
+
+  // Persist XP and streaks
+  useEffect(() => { saveXP(xpData); }, [xpData]);
+  useEffect(() => { saveStreaks(streakData); }, [streakData]);
+
+  // Record daily activity whenever they use the app
+  useEffect(() => {
+    if (profile) setStreakData(prev => recordActivity(prev));
+  }, [profile]);
+
+  function gainXP(amount, reason) {
+    setXpData(prev => addXP(prev, amount, reason));
+    setStreakData(prev => recordActivity(prev));
+  }
 
   // Save profile to both localStorage and Supabase
   function updateProfile(p) {
@@ -1304,6 +1509,7 @@ export default function App() {
     try {
       const reply = await apiSend(fullSys, apiMsgs);
       setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: [...updated, { role: "assistant", content: reply }] } }));
+      gainXP(5, "Sent message");
     } catch (e) {
       setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: [...updated, { role: "assistant", content: "\u274c " + e.message }] } }));
     } finally { setLoading(false); }
@@ -1320,6 +1526,7 @@ export default function App() {
       setMemory(prev => addSessionToMem(prev, active, data));
       if (profile) sbSave(profile.name, active, data.date, JSON.stringify(data));
       setShowSum(data);
+      gainXP(25, "Session summary");
     } catch (e) { console.error("Summary failed:", e); } finally { setSumLoading(false); }
   }
 
@@ -1355,6 +1562,7 @@ export default function App() {
         {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
         {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
+        {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
 
         {/* Header */}
         <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
@@ -1383,27 +1591,60 @@ export default function App() {
 
         {/* Home or Chat */}
         {!active ? (
-          <div style={{ maxWidth: 640, margin: "0 auto", padding: "44px 22px" }}>
-            <h1 style={{ fontSize: 32, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 8 }}>Hello, {profile.name}.<br /><span style={{ color: "#888", fontWeight: 400 }}>Who's tutoring you today?</span></h1>
-            <p style={{ color: "#999", fontSize: 13, marginBottom: 28, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory \u2014 your tutors remember your progress." : "Your tutors adapt to you and remember your progress after each session."}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 28 }}>
+          <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 22px" }}>
+            {/* Streak & XP Bar */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+              <div style={{ flex: 1, background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 22 }}>{streak > 0 ? "\ud83d\udd25" : "\u2744\ufe0f"}</span>
+                  <div><div style={{ fontSize: 22, fontWeight: 900, color: "#1a1a2e", lineHeight: 1 }}>{streak}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>day streak</div></div>
+                </div>
+                <div style={{ display: "flex", gap: 3 }}>{week.map((d, i) => <div key={i} style={{ flex: 1, textAlign: "center" }}><div style={{ width: "100%", height: 6, borderRadius: 3, background: d.active ? "#22c55e" : "#eee", marginBottom: 2 }} /><div style={{ fontSize: 8, color: "#bbb" }}>{d.day}</div></div>)}</div>
+              </div>
+              <div style={{ flex: 1, background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 22 }}>{LEVEL_EMOJIS[lv.level] || "\ud83c\udfc6"}</span>
+                  <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Level {lv.level}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{lv.title}</div></div>
+                  <div style={{ marginLeft: "auto", fontSize: 18, fontWeight: 900, color: "#f0c040" }}>{xpData.total}</div>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#f0c040,#f59e0b)", width: Math.min(100, lv.current / lv.next * 100) + "%", transition: "width .5s" }} /></div>
+                <div style={{ fontSize: 9, color: "#bbb", marginTop: 3 }}>{lv.current}/{lv.next} XP to Level {lv.level + 1}</div>
+              </div>
+            </div>
+
+            <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
+            <p style={{ color: "#999", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
               {mySubjects(profile).map((t, i) => {
                 const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
+                const conf = getConfidence(memory, t.id);
+                const avg = avgConfidence(conf);
+                const topics = Object.entries(conf).slice(0, 4);
                 return (
-                  <div key={t.id} className="card" onClick={() => setActive(t.id)} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .08}s both` }}>
-                    <div style={{ background: t.gradient, padding: "20px 18px 16px" }}><div style={{ fontSize: 32, marginBottom: 6 }}>{t.emoji}</div><div style={{ fontFamily: "'Playfair Display',serif", color: "#fff", fontSize: 17, fontWeight: 700 }}>{t.tutor.name}</div><div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>{t.label}</div></div>
-                    <div style={{ background: "#fff", padding: "10px 18px" }}>
-                      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>{t.description}{bd ? " \u00b7 " + bd : ""}</div>
-                      <div style={{ fontSize: 12, color: t.color, fontWeight: 700 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "") + " remembered"}</div>
-                      {mc > 0 && <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""} ready</div>}
+                  <div key={t.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both` }}>
+                    <div className="card" onClick={() => setActive(t.id)} style={{ background: t.gradient, padding: "18px 16px 14px", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>
+                        {avg >= 0 && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }}>{avg}%</div>}
+                      </div>
+                      <div style={{ fontFamily: "'Playfair Display',serif", color: "#fff", fontSize: 16, fontWeight: 700 }}>{t.tutor.name}</div>
+                      <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{t.label}{bd ? " \u00b7 " + bd : ""}</div>
+                    </div>
+                    <div style={{ background: "#fff", padding: "10px 16px" }}>
+                      {topics.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>{topics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 16, borderRadius: 2, background: pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444" }} title={topic + ": " + pct + "%"} />)}</div>}
+                      <div style={{ fontSize: 11, color: t.color, fontWeight: 700, marginBottom: 4 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "")}</div>
+                      {mc > 0 && <div style={{ fontSize: 10, color: "#888" }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
+                      <button onClick={e => { e.stopPropagation(); setQuizSubject(t); }} style={{ marginTop: 6, width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: "transparent", color: t.color, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{"\u26a1"} Quick Quiz</button>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div style={{ background: "#fff", borderRadius: 14, padding: "18px 20px", border: "1px solid #eee" }}>
+
+            <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #eee" }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udca1"} Tips</div>
-              {[["Memory is automatic", "Summaries save after each session and inject into the next."], ["Upload materials", "Tap \ud83d\udcce to upload worksheets \u2014 tutor uses them directly."], ["Test prep", "Upload notes then ask 'Prepare me for my test'."], ["Export backup", "Tap \ud83e\udde0 Memory \u2192 Export to save progress."]].map(([t, d]) => <div key={t} style={{ display: "flex", gap: 10, marginBottom: 8 }}><div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 12, minWidth: 150 }}>{t}</div><div style={{ color: "#888", fontSize: 12 }}>{d}</div></div>)}
+              {[["Quick Quiz", "Tap \u26a1 on any subject for a 5-question challenge."], ["Earn XP", "+5 per message, +25 per summary, +20 per correct quiz answer."], ["Upload materials", "Tap \ud83d\udcce to upload worksheets \u2014 tutor uses them directly."], ["Keep your streak", "Open the app daily to build your streak!"]].map(([t, d]) => <div key={t} style={{ display: "flex", gap: 10, marginBottom: 8 }}><div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 12, minWidth: 120 }}>{t}</div><div style={{ color: "#888", fontSize: 12 }}>{d}</div></div>)}
             </div>
           </div>
         ) : (
