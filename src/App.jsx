@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.1.3 (9 Mar 2026, 10:00)";
+const APP_VERSION = "3.2.0 (9 Mar 2026, 12:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1502,6 +1502,248 @@ function QuickQuiz({ subject, profile, onClose, onXP }) {
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   QUIZ BUILDER — custom revision quiz from materials + description
+   ═══════════════════════════════════════════════════════════════════ */
+
+function QuizBuilder({ subject, profile, mats, pastQuizzes, onClose, onXP, onSaveQuiz }) {
+  const [phase, setPhase] = useState("setup"); // "setup"|"loading"|"question"|"result"
+  const [desc, setDesc] = useState("");
+  const [numQ, setNumQ] = useState(10);
+  const [selMats, setSelMats] = useState(mats.map(m => m.id)); // all selected by default
+  const [questions, setQuestions] = useState([]);
+  const [qi, setQi] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [err, setErr] = useState(null);
+  const [loadMsg, setLoadMsg] = useState("Generating your quiz...");
+
+  const toggleMat = id => setSelMats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  async function generate() {
+    setPhase("loading");
+    const board = profile.examBoards?.[subject.id] || "";
+    const usedMats = mats.filter(m => selMats.includes(m.id));
+
+    // Build material context for the prompt
+    let matContext = "";
+    for (const m of usedMats) {
+      if (m.isText && m.textContent) matContext += `\n[${m.name}]:\n${m.textContent.slice(0, 3000)}\n---\n`;
+      else if (m.isImg || m.isPdf) matContext += `\n[${m.name}]: (uploaded ${m.type} file)\n`;
+    }
+
+    // Include past quiz summaries so questions aren't repeated
+    let pastContext = "";
+    if (pastQuizzes?.length) {
+      const recent = pastQuizzes.slice(-3);
+      pastContext = "\n\nPREVIOUS QUIZZES (do NOT repeat these questions, generate DIFFERENT ones):\n" + recent.map(pq => pq.questions?.map(q => q.q).join("; ") || "").join("\n");
+    }
+
+    const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
+
+    // For larger quizzes, generate in batches
+    const allQ = [];
+    const batchSize = 8;
+    const batches = Math.ceil(numQ / batchSize);
+
+    try {
+      for (let b = 0; b < batches; b++) {
+        const remaining = numQ - allQ.length;
+        const thisCount = Math.min(batchSize, remaining);
+        setLoadMsg(`Generating questions ${allQ.length + 1}-${allQ.length + thisCount} of ${numQ}...`);
+
+        const alreadyGenerated = allQ.length > 0 ? "\n\nQuestions already generated (do NOT repeat):\n" + allQ.map(q => q.q).join("\n") : "";
+
+        // Build API messages — include materials as user content if available
+        const apiMsgs = [];
+        const mediaContent = usedMats.filter(m => m.isImg || m.isPdf).map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } }));
+        if (mediaContent.length) {
+          apiMsgs.push({ role: "user", content: [...mediaContent, { type: "text", text: "These are the student's revision materials. Use them to generate quiz questions." }] });
+          apiMsgs.push({ role: "assistant", content: "I'll use these materials to create targeted quiz questions." });
+        }
+
+        const prompt = `Generate exactly ${thisCount} multiple-choice questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier.
+${desc ? "\nTEST DESCRIPTION: " + desc : ""}
+${matContext ? "\nREVISION MATERIALS:\n" + matContext : ""}${pastContext}${alreadyGenerated}
+
+Requirements:
+- Questions should test understanding, not just recall
+- Mix difficulty: some straightforward, some requiring application
+- Base questions on the materials provided where possible
+- Each question must have exactly 4 options with one correct answer
+- Include a brief explanation for the correct answer
+
+Return ONLY valid JSON array (no markdown, no backticks):
+[{"q":"question text","options":["A","B","C","D"],"correct":0,"explanation":"brief explanation","topic":"topic name"}]
+where correct is the 0-based index.`;
+
+        apiMsgs.push({ role: "user", content: prompt });
+        const raw = await apiSend(sys, apiMsgs, 2400);
+        const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) allQ.push(...parsed.slice(0, thisCount));
+      }
+
+      if (allQ.length >= 3) {
+        setQuestions(allQ.slice(0, numQ));
+        setPhase("question");
+      } else throw new Error("bad");
+    } catch (e) {
+      setErr(e.message === "bad" ? "Couldn't generate quiz. Try again!" : e.message);
+      setPhase("result");
+    }
+  }
+
+  function answer(idx) {
+    const correct = questions[qi].correct === idx;
+    const newAnswers = [...answers, { chosen: idx, correct }];
+    setAnswers(newAnswers);
+    if (correct) onXP(20, "Custom quiz correct");
+    setTimeout(() => {
+      if (qi < questions.length - 1) setQi(qi + 1);
+      else { onXP(50, "Custom quiz completed"); setPhase("result"); }
+    }, 1200);
+  }
+
+  function saveResults() {
+    const score = answers.filter(a => a.correct).length;
+    const total = questions.length;
+    const topicScores = {};
+    questions.forEach((q, i) => {
+      const t = q.topic || "General";
+      if (!topicScores[t]) topicScores[t] = { right: 0, total: 0 };
+      topicScores[t].total++;
+      if (answers[i]?.correct) topicScores[t].right++;
+    });
+    const result = {
+      date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+      type: "custom_quiz",
+      subject: subject.id,
+      description: desc || "Custom quiz",
+      score, total,
+      percentage: Math.round(score / total * 100),
+      topicScores: Object.fromEntries(Object.entries(topicScores).map(([t, v]) => [t, Math.round(v.right / v.total * 100)])),
+      questions: questions.map((q, i) => ({ q: q.q, correct: answers[i]?.correct, topic: q.topic })),
+      materialsUsed: mats.filter(m => selMats.includes(m.id)).map(m => m.name),
+    };
+    onSaveQuiz(result);
+  }
+
+  const score = answers.filter(a => a.correct).length;
+  const total = questions.length;
+  const q = questions[qi];
+  const answered = answers.length > qi;
+  const pct = total ? Math.round(score / total * 100) : 0;
+
+  const modalStyle = { position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
+  const cardStyle = { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 580, maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" };
+
+  return (
+    <div style={modalStyle}>
+      <div style={cardStyle}>
+        <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>QUIZ BUILDER</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
+          {phase === "question" && <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "4px 10px" }}>{qi + 1}/{total}</div>}
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
+        </div>
+
+        <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
+          {phase === "setup" && (<div>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>What are you revising for?</div>
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} placeholder="e.g. End of topic test on WW2 causes, Chapter 5-7 vocabulary test, Mock exam Paper 1..." style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.5, outline: "none", resize: "vertical" }} />
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Number of questions</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[5, 10, 15, 20, 30].map(n => <button key={n} onClick={() => setNumQ(n)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "2px solid " + (numQ === n ? subject.color : "#e0e0e0"), background: numQ === n ? subject.color + "15" : "#fff", color: numQ === n ? subject.color : "#666", fontWeight: numQ === n ? 700 : 400, cursor: "pointer", fontSize: 14 }}>{n}</button>)}
+              </div>
+            </div>
+            {mats.length > 0 && <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Revision materials to include</div>
+              <div style={{ fontSize: 11, color: "#999", marginBottom: 8 }}>Questions will be based on these files</div>
+              {mats.map(m => {
+                const on = selMats.includes(m.id);
+                return <div key={m.id} onClick={() => toggleMat(m.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "2px solid " + (on ? subject.color : "#eee"), background: on ? subject.color + "08" : "#fafafa", marginBottom: 6, cursor: "pointer" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid " + (on ? subject.color : "#ccc"), background: on ? subject.color : "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>{on ? "\u2713" : ""}</div>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "#333" }}>{m.name}</div><div style={{ fontSize: 10, color: "#999" }}>{m.type.toUpperCase()} {"\u00b7"} {(m.size / 1024).toFixed(0)}KB</div></div>
+                </div>;
+              })}
+            </div>}
+            {mats.length === 0 && <div style={{ padding: "16px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee", marginBottom: 18, fontSize: 12, color: "#888" }}>{"\ud83d\udca1"} Tip: Upload revision materials first (tap {"\ud83d\udcce"} Materials in the chat header) and the quiz will be based on them.</div>}
+            <button onClick={generate} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>{"\ud83d\udee0\ufe0f"} Build My Quiz</button>
+          </div>)}
+
+          {phase === "loading" && (
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83d\udee0\ufe0f"}</div>
+              <div style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>{loadMsg}</div>
+              <div style={{ color: "#aaa", fontSize: 12 }}>This may take a moment for longer quizzes</div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div>
+            </div>
+          )}
+
+          {phase === "question" && q && (<div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 4, lineHeight: 1.6 }}>{q.q}</div>
+            {q.topic && <div style={{ fontSize: 11, color: "#999", marginBottom: 14 }}>Topic: {q.topic}</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {q.options.map((opt, oi) => {
+                const wasChosen = answered && answers[qi]?.chosen === oi;
+                const isCorrect = q.correct === oi;
+                const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
+                const border = !answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0";
+                return <div key={oi} onClick={() => !answered && answer(oi)} style={{ padding: "12px 16px", borderRadius: 12, border: "2px solid " + border, background: bg, cursor: answered ? "default" : "pointer", fontSize: 14, color: "#333", transition: "all .2s", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: "50%", background: !answered ? subject.color + "20" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#eee", color: !answered ? subject.color : isCorrect || wasChosen ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
+                  {opt}
+                </div>;
+              })}
+            </div>
+            {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
+            <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 14 : 6, height: 6, borderRadius: 3, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+          </div>)}
+
+          {phase === "result" && (<div style={{ textAlign: "center", padding: "10px 0" }}>
+            {err ? <><div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26a0\ufe0f"}</div><div style={{ color: "#666", marginBottom: 16 }}>{err}</div></> : <>
+              <div style={{ fontSize: 48, marginBottom: 8 }}>{pct >= 80 ? "\ud83c\udf89" : pct >= 60 ? "\ud83d\udc4d" : pct >= 40 ? "\ud83d\udcaa" : "\ud83d\udca1"}</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
+              <div style={{ fontSize: 14, color: "#888", marginBottom: 4 }}>{pct >= 80 ? "Excellent!" : pct >= 60 ? "Good job!" : pct >= 40 ? "Getting there!" : "Keep practising!"}</div>
+              <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 16 }}>+{score * 20 + 50} XP earned</div>
+              {/* Topic breakdown */}
+              {(() => {
+                const topicMap = {};
+                questions.forEach((q, i) => { const t = q.topic || "General"; if (!topicMap[t]) topicMap[t] = { right: 0, total: 0 }; topicMap[t].total++; if (answers[i]?.correct) topicMap[t].right++; });
+                return Object.entries(topicMap).length > 1 && <div style={{ textAlign: "left", marginBottom: 16, padding: "12px 14px", borderRadius: 12, background: "#f8f8f8" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", marginBottom: 8 }}>TOPIC BREAKDOWN</div>
+                  {Object.entries(topicMap).map(([t, v]) => {
+                    const tp = Math.round(v.right / v.total * 100);
+                    return <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <div style={{ flex: 1, fontSize: 12, color: "#444" }}>{t}</div>
+                      <div style={{ width: 60, height: 5, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: tp >= 70 ? "#22c55e" : tp >= 40 ? "#f59e0b" : "#ef4444", width: tp + "%" }} /></div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#666", width: 40 }}>{v.right}/{v.total}</div>
+                    </div>;
+                  })}
+                </div>;
+              })()}
+              <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
+                {questions.map((q, i) => (
+                  <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 4, fontSize: 12 }}>
+                    <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span> {q.q.slice(0, 70)}{q.q.length > 70 ? "..." : ""}
+                    {!answers[i]?.correct && <span style={{ color: "#666" }}> \u2014 {q.options[q.correct]}</span>}
+                  </div>
+                ))}
+              </div>
+            </>}
+            <div style={{ display: "flex", gap: 8 }}>
+              {!err && <button onClick={() => { saveResults(); onClose(); }} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{"\ud83d\udcbe"} Save & Close</button>}
+              <button onClick={onClose} style={{ flex: err ? 1 : 0, padding: "12px 20px", borderRadius: 12, border: "2px solid #e0e0e0", background: "#fff", color: "#666", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Close</button>
+            </div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -1526,7 +1768,8 @@ export default function App() {
   const [streakData, setStreakData] = useState(loadStreaks);
   const [quizSubject, setQuizSubject] = useState(null);
   const [topicData, setTopicData] = useState(loadTopicProgress);
-  const [topicsFor, setTopicsFor] = useState(null); // subject object for topics panel
+  const [topicsFor, setTopicsFor] = useState(null);
+  const [buildQuizFor, setBuildQuizFor] = useState(null); // subject for quiz builder
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -1615,10 +1858,40 @@ export default function App() {
     setTopicsFor(null);
     setActive(sub.id);
     setTopicData(prev => recordTopicStudy(prev, sub.id, topic));
-    // Send an opening message asking to study this topic
     setTimeout(() => {
       if (sendRef.current) sendRef.current("I'd like to study: " + topic);
     }, 800);
+  }
+
+  // Save custom quiz results to memory + Supabase
+  function saveQuizResult(result) {
+    const sid = result.subject;
+    const summaryText = `QUIZ RESULT: "${result.description}" — ${result.score}/${result.total} (${result.percentage}%).\nTopics: ${Object.entries(result.topicScores || {}).map(([t, p]) => t + ": " + p + "%").join(", ")}.\nMaterials used: ${(result.materialsUsed || []).join(", ") || "none"}.\nAreas to focus on: ${result.questions?.filter(q => !q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "all good!"}`;
+    const data = {
+      date: result.date,
+      type: "custom_quiz",
+      topics: Object.keys(result.topicScores || {}),
+      strengths: result.questions?.filter(q => q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i) || [],
+      weaknesses: result.questions?.filter(q => !q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i) || [],
+      confidenceScores: result.topicScores || {},
+      messageCount: result.total,
+      examQuestionsAttempted: result.total,
+      rawSummaryText: summaryText,
+      quizData: result,
+    };
+    setMemory(prev => addSessionToMem(prev, sid, data));
+    if (profile) sbSave(profile.name, sid, result.date, JSON.stringify(data));
+    // Update topic progress from quiz scores
+    if (result.topicScores) {
+      setTopicData(prev => {
+        let updated = prev;
+        for (const [topic, conf] of Object.entries(result.topicScores)) {
+          updated = recordTopicStudy(updated, sid, topic, conf);
+        }
+        if (profile) sbSaveSetting(profile.name, "topics", updated);
+        return updated;
+      });
+    }
   }
 
   // Save profile to both localStorage and Supabase
@@ -1779,6 +2052,7 @@ export default function App() {
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
         {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
         {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => studyTopic(topicsFor, topic)} onClose={() => setTopicsFor(null)} />}
+        {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} mats={mats[buildQuizFor.id] || []} pastQuizzes={getSessions(memory, buildQuizFor.id).filter(s => s.type === "custom_quiz")} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onSaveQuiz={saveQuizResult} />}
 
         {/* Header */}
         <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
@@ -1791,6 +2065,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
               <button className="btn" onClick={() => setExamMode(e => !e)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: examMode ? subject.color : "rgba(0,0,0,0.07)", color: examMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} {examMode ? "Exam ON" : "Exam"}</button>
+              <button className="btn" onClick={() => setBuildQuizFor(subject)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: "rgba(0,0,0,0.07)", color: "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udee0\ufe0f"} Quiz</button>
               {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) { stopSpeaking(); setConvoMode(false); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
               {voiceMode && voiceCfg && micSupported && <button className="btn" onClick={() => { setConvoMode(v => { if (!v) { stopSpeaking(); setTimeout(() => startMicRef.current(), 200); } else { stopMic(); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: convoMode ? "#059669" : "rgba(0,0,0,0.07)", color: convoMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700, animation: convoMode ? "mp 2s ease infinite" : "none" }}>{convoMode ? "\ud83d\udd04 Conversation" : "\ud83d\udde3\ufe0f Converse"}</button>}
               <button className="btn" onClick={genSummary} disabled={sumLoading || msgs.length < 3} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: msgs.length >= 3 ? subject.color : "rgba(0,0,0,0.07)", color: msgs.length >= 3 ? "#fff" : "#aaa", fontSize: 11, fontWeight: 700, opacity: sumLoading ? .6 : 1 }}>{sumLoading ? "Saving..." : "\ud83d\udccb Summary"}</button>
@@ -1857,7 +2132,8 @@ export default function App() {
                       {mc > 0 && <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
                       <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                         <button onClick={e => { e.stopPropagation(); setTopicsFor(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: "transparent", color: t.color, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\ud83d\udcdd"} Topics</button>
-                        <button onClick={e => { e.stopPropagation(); setQuizSubject(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: t.color, color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\u26a1"} Quiz</button>
+                        <button onClick={e => { e.stopPropagation(); setQuizSubject(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: "transparent", color: t.color, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\u26a1"} Quick</button>
+                        <button onClick={e => { e.stopPropagation(); setBuildQuizFor(t); }} style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1.5px solid " + t.color, background: t.color, color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" }}>{"\ud83d\udee0\ufe0f"} Build</button>
                       </div>
                     </div>
                   </div>
