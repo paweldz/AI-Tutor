@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.3.0 (9 Mar 2026, 14:00)";
+const APP_VERSION = "3.4.0 (9 Mar 2026, 16:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1407,12 +1407,111 @@ function TopicsPanel({ subject, profile, topicData, onStudy, onClose }) {
 }
 
 
+
+
 /* ═══════════════════════════════════════════════════════════════════
-   QUICK QUIZ — 5 rapid-fire questions, AI-generated, instant scoring
+   QUICK QUIZ — Simple auto-start, 10 MC questions biased toward
+   recently studied & weak topics from session memory
    ═══════════════════════════════════════════════════════════════════ */
 
-function QuickQuiz({ subject, profile, onClose, onXP }) {
-  const [phase, setPhase] = useState("setup"); // "setup"|"loading"|"question"|"marking"|"result"
+function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
+  const [phase, setPhase] = useState("loading");
+  const [questions, setQuestions] = useState([]);
+  const [qi, setQi] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    const board = profile.examBoards?.[subject.id] || "";
+    // Gather weak/recent topics from memory to focus the quiz
+    const conf = getConfidence(memory, subject.id);
+    const prog = getTopicProgress(topicData, subject.id);
+    const weakTopics = Object.entries(conf).filter(([, v]) => v < 60).map(([t]) => t);
+    const recentTopics = Object.entries(prog).sort((a, b) => (b[1].lastDate || "").localeCompare(a[1].lastDate || "")).slice(0, 6).map(([t]) => t);
+    const focusTopics = [...new Set([...weakTopics, ...recentTopics])].slice(0, 8);
+    const topicHint = focusTopics.length > 0 ? `\nFocus especially on these topics the student has been studying: ${focusTopics.join(", ")}.` : "";
+
+    const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
+    const prompt = `Generate exactly 10 multiple-choice questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix easy and medium difficulty.${topicHint}\n\nReturn ONLY valid JSON array (no markdown, no backticks):\n[{"q":"question text","options":["A","B","C","D"],"correct":0,"explanation":"brief explanation"}]\nwhere correct is the 0-based index of the right answer.`;
+    apiSend(sys, [{ role: "user", content: prompt }], 2000).then(raw => {
+      try {
+        const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed) && parsed.length >= 3) { setQuestions(parsed.slice(0, 10)); setPhase("question"); }
+        else throw new Error("bad");
+      } catch { setErr("Couldn't generate quiz. Try again!"); setPhase("result"); }
+    }).catch(e => { setErr(e.message); setPhase("result"); });
+  }, []);
+
+  function answer(idx) {
+    const correct = questions[qi].correct === idx;
+    setAnswers(prev => [...prev, { chosen: idx, correct }]);
+    if (correct) onXP(20, "Quiz correct");
+    setTimeout(() => { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }, 1200);
+  }
+
+  const score = answers.filter(a => a.correct).length;
+  const total = questions.length;
+  const q = questions[qi];
+  const answered = answers.length > qi;
+  const pct = total ? Math.round(score / total * 100) : 0;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "auto", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
+        <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>QUICK QUIZ</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
+          {phase === "question" && <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{qi + 1}/{total}</div>}
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
+        </div>
+        <div style={{ padding: 22 }}>
+          {phase === "loading" && <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontSize: 32, marginBottom: 12 }}>{"\u26a1"}</div><div style={{ color: "#666", fontSize: 14 }}>Generating 10 questions...</div><div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div></div>}
+
+          {phase === "question" && q && <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(q.options || []).map((opt, oi) => {
+                const wasChosen = answered && answers[qi]?.chosen === oi;
+                const isCorrect = q.correct === oi;
+                const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
+                const border = !answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0";
+                return <div key={oi} onClick={() => !answered && answer(oi)} style={{ padding: "12px 14px", borderRadius: 12, border: "2px solid " + border, background: bg, cursor: answered ? "default" : "pointer", fontSize: 13, color: "#333", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: !answered ? subject.color + "20" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#eee", color: !answered ? subject.color : isCorrect || wasChosen ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
+                  {opt}
+                </div>;
+              })}
+            </div>
+            {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
+            <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 18 : 7, height: 7, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+          </div>}
+
+          {phase === "result" && <div style={{ textAlign: "center", padding: "20px 0" }}>
+            {err ? <><div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26a0\ufe0f"}</div><div style={{ color: "#666", marginBottom: 16 }}>{err}</div></> : <>
+              <div style={{ fontSize: 48, marginBottom: 8 }}>{pct >= 80 ? "\ud83c\udf89" : pct >= 60 ? "\ud83d\udc4d" : pct >= 40 ? "\ud83d\udcaa" : "\ud83d\udca1"}</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
+              <div style={{ fontSize: 14, color: "#888", marginBottom: 4 }}>{pct >= 80 ? "Excellent!" : pct >= 60 ? "Good job!" : pct >= 40 ? "Getting there!" : "Keep practising!"}</div>
+              <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 16 }}>+{score * 20 + 30} XP earned</div>
+              {questions.map((q, i) => <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 5, fontSize: 12 }}>
+                <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span> {q.q.slice(0, 55)}{q.q.length > 55 ? "..." : ""}
+                {!answers[i]?.correct && q.options && <span style={{ color: "#666" }}> {"\u2014"} {q.options[q.correct]}</span>}
+              </div>)}
+            </>}
+            <button onClick={onClose} style={{ marginTop: 16, padding: "12px 28px", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   QUIZ BUILDER — full setup: 5 question types, materials upload,
+   coverage tracking on results
+   ═══════════════════════════════════════════════════════════════════ */
+
+function QuizBuilder({ subject, profile, onClose, onXP }) {
+  const [phase, setPhase] = useState("setup");
   const [questions, setQuestions] = useState([]);
   const [qi, setQi] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -1431,7 +1530,6 @@ function QuickQuiz({ subject, profile, onClose, onXP }) {
     { id: "fill", label: "Fill the Blank", emoji: "\u2702\ufe0f", desc: "Complete the sentence" },
     { id: "match", label: "Key Terms", emoji: "\ud83d\udd17", desc: "Match terms to definitions" },
   ];
-
   const anyType = Object.values(qTypes).some(v => v);
   const hasMats = quizMats.length > 0;
 
@@ -1452,105 +1550,50 @@ function QuickQuiz({ subject, profile, onClose, onXP }) {
   function startQuiz() {
     if (!anyType) return;
     setPhase("loading");
-
     const selectedTypes = Object.entries(qTypes).filter(([, v]) => v).map(([k]) => k);
-    const typeInstructions = selectedTypes.map(t => {
-      if (t === "mc") return '"mc" — multiple choice: {"type":"mc","q":"question","options":["A","B","C","D"],"correct":0,"explanation":"brief"}';
-      if (t === "tf") return '"tf" — true/false: {"type":"tf","q":"statement (that is either true or false)","correct":true,"explanation":"brief"}';
-      if (t === "short") return '"short" — short answer: {"type":"short","q":"question","answer":"correct answer (2-8 words)","keywords":["key","words","to","match"],"explanation":"brief"}';
-      if (t === "fill") return '"fill" — fill the blank: {"type":"fill","q":"Sentence with _____ for the blank","answer":"missing word or phrase","explanation":"brief"}';
-      if (t === "match") return '"match" — key term matching: {"type":"match","pairs":[{"term":"term1","def":"definition1"},{"term":"term2","def":"definition2"},{"term":"term3","def":"definition3"},{"term":"term4","def":"definition4"}],"explanation":"brief"}';
+    const typeInstr = selectedTypes.map(t => {
+      if (t === "mc") return '"mc": {"type":"mc","q":"question","options":["A","B","C","D"],"correct":0,"explanation":"brief"}';
+      if (t === "tf") return '"tf": {"type":"tf","q":"true-or-false statement","correct":true,"explanation":"brief"}';
+      if (t === "short") return '"short": {"type":"short","q":"question","answer":"correct answer","keywords":["key","words"],"explanation":"brief"}';
+      if (t === "fill") return '"fill": {"type":"fill","q":"Sentence with _____ for blank","answer":"missing word","explanation":"brief"}';
+      if (t === "match") return '"match": {"type":"match","pairs":[{"term":"t1","def":"d1"},{"term":"t2","def":"d2"},{"term":"t3","def":"d3"},{"term":"t4","def":"d4"}],"explanation":"brief"}';
       return "";
     }).join("\n");
-
     const board = profile.examBoards?.[subject.id] || "";
-    const matNames = quizMats.map(m => m.name).join(", ");
-    const matNote = hasMats ? `\n\nIMPORTANT: Base ALL questions on the uploaded materials (${matNames}). Cover as many different sections of the materials as possible. After the questions array, add a field "coveragePct" (0-100) estimating what % of the material content is tested by these questions.` : "";
-
+    const matNote = hasMats ? `\n\nIMPORTANT: Base ALL questions on the uploaded materials (${quizMats.map(m => m.name).join(", ")}). Cover as many different sections as possible. Add "coveragePct" (0-100) estimating what % of the material is tested.` : "";
     const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
-    const prompt = `Generate exactly ${qCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix easy and medium difficulty.
-
-Use ONLY these question types (distribute evenly):\n${typeInstructions}
-
-Return ONLY valid JSON (no markdown, no backticks). Format:
-{"questions":[...array of question objects...]${hasMats ? ',"coveragePct":50' : ""}}${matNote}`;
-
-    // Build API messages — include materials if uploaded
+    const prompt = `Generate exactly ${qCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix difficulty.\n\nUse ONLY these types (distribute evenly):\n${typeInstr}\n\nReturn ONLY valid JSON (no markdown, no backticks):\n{"questions":[...array...]${hasMats ? ',"coveragePct":50' : ""}}${matNote}`;
     const apiMsgs = [];
-    const mediaContent = quizMats.filter(m => m.isImg || m.isPdf).map(m => ({
-      type: m.isPdf ? "document" : "image",
-      source: { type: "base64", media_type: m.mediaType, data: m.base64 },
-    }));
-    const textContent = quizMats.filter(m => m.isText).map(m => `[${m.name}]:\n${m.textContent}`).join("\n---\n");
-    if (mediaContent.length || textContent) {
-      const parts = [...mediaContent];
-      if (textContent) parts.push({ type: "text", text: "STUDY MATERIALS:\n" + textContent });
-      else parts.push({ type: "text", text: "These are the study materials. Base all questions on them." });
+    const media = quizMats.filter(m => m.isImg || m.isPdf).map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } }));
+    const textMat = quizMats.filter(m => m.isText).map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n");
+    if (media.length || textMat) {
+      const parts = [...media];
+      parts.push({ type: "text", text: textMat ? "STUDY MATERIALS:\n" + textMat : "Study materials uploaded. Base all questions on them." });
       apiMsgs.push({ role: "user", content: parts });
       apiMsgs.push({ role: "assistant", content: "I've reviewed the materials. I'll generate quiz questions based on them." });
     }
     apiMsgs.push({ role: "user", content: prompt });
-
-    apiSend(sys, apiMsgs, 2000).then(raw => {
+    apiSend(sys, apiMsgs, 2400).then(raw => {
       try {
         const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
         const parsed = JSON.parse(cleaned);
         const qs = parsed.questions || parsed;
-        if (Array.isArray(qs) && qs.length >= 2) {
-          setQuestions(qs.slice(0, qCount));
-          if (parsed.coveragePct) setCoverage(parsed.coveragePct);
-          setPhase("question");
-        } else throw new Error("bad format");
+        if (Array.isArray(qs) && qs.length >= 2) { setQuestions(qs.slice(0, qCount)); if (parsed.coveragePct) setCoverage(parsed.coveragePct); setPhase("question"); }
+        else throw new Error("bad");
       } catch { setErr("Couldn't generate quiz. Try again!"); setPhase("result"); }
     }).catch(e => { setErr(e.message); setPhase("result"); });
   }
 
-  function answerMC(idx) {
-    const correct = questions[qi].correct === idx;
-    setAnswers(prev => [...prev, { chosen: idx, correct, type: "mc" }]);
-    if (correct) onXP(20, "Quiz correct");
-    setTimeout(nextQ, 1200);
-  }
-
-  function answerTF(val) {
-    const correct = questions[qi].correct === val;
-    setAnswers(prev => [...prev, { chosen: val, correct, type: "tf" }]);
-    if (correct) onXP(20, "Quiz correct");
-    setTimeout(nextQ, 1200);
-  }
-
+  function answerMC(idx) { const c = questions[qi].correct === idx; setAnswers(p => [...p, { chosen: idx, correct: c, type: "mc" }]); if (c) onXP(20, "Quiz correct"); setTimeout(nextQ, 1200); }
+  function answerTF(val) { const c = questions[qi].correct === val; setAnswers(p => [...p, { chosen: val, correct: c, type: "tf" }]); if (c) onXP(20, "Quiz correct"); setTimeout(nextQ, 1200); }
   function answerTyped() {
-    const q = questions[qi];
-    const userAns = typedAns.trim().toLowerCase();
-    if (!userAns) return;
-    let correct = false;
-    if (q.type === "fill") {
-      correct = userAns === (q.answer || "").toLowerCase() || (q.keywords || []).some(k => userAns.includes(k.toLowerCase()));
-    } else if (q.type === "short") {
-      const kw = q.keywords || [];
-      const ans = (q.answer || "").toLowerCase();
-      correct = userAns === ans || (kw.length > 0 && kw.filter(k => userAns.includes(k.toLowerCase())).length >= Math.ceil(kw.length * 0.5));
-    }
-    setAnswers(prev => [...prev, { typed: typedAns.trim(), correct, type: q.type, expected: q.answer }]);
-    if (correct) onXP(25, "Quiz typed correct");
-    setTypedAns("");
-    setTimeout(nextQ, 1500);
+    const q = questions[qi]; const ua = typedAns.trim().toLowerCase(); if (!ua) return;
+    let c = false; const ans = (q.answer || "").toLowerCase(); const kw = q.keywords || [];
+    if (q.type === "fill") c = ua === ans || kw.some(k => ua.includes(k.toLowerCase()));
+    else c = ua === ans || (kw.length > 0 && kw.filter(k => ua.includes(k.toLowerCase())).length >= Math.ceil(kw.length * 0.5));
+    setAnswers(p => [...p, { typed: typedAns.trim(), correct: c, type: q.type, expected: q.answer }]); if (c) onXP(25, "Quiz typed correct"); setTypedAns(""); setTimeout(nextQ, 1500);
   }
-
-  function answerMatch(order) {
-    const q = questions[qi];
-    const correct = order.every((defIdx, i) => defIdx === i);
-    const score = order.filter((defIdx, i) => defIdx === i).length;
-    setAnswers(prev => [...prev, { matchOrder: order, correct, matchScore: score, type: "match" }]);
-    if (correct) onXP(25, "Quiz match perfect");
-    else if (score >= 2) onXP(10, "Quiz match partial");
-    setTimeout(nextQ, 1500);
-  }
-
-  function nextQ() {
-    if (qi < questions.length - 1) setQi(qi + 1);
-    else { onXP(30, "Quiz completed"); setPhase("result"); }
-  }
+  function nextQ() { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }
 
   const score = answers.filter(a => a.correct).length;
   const total = questions.length;
@@ -1558,24 +1601,28 @@ Return ONLY valid JSON (no markdown, no backticks). Format:
   const answered = answers.length > qi;
   const pct = total ? Math.round(score / total * 100) : 0;
 
-  /* ── MATCH sub-component ── */
-  function MatchQuestion({ q, onAnswer, answered, answer, color }) {
+  /* Match sub-component */
+  function MatchQ({ q, onDone, done, ans, color }) {
     const [shuffled] = useState(() => q.pairs.map((_, i) => i).sort(() => Math.random() - 0.5));
-    const [selected, setSelected] = useState(null);
+    const [sel, setSel] = useState(null);
     const [matches, setMatches] = useState({});
-    const allMatched = Object.keys(matches).length === q.pairs.length;
-    return (<div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e", marginBottom: 14 }}>Match each term to its definition:</div>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={{ flex: 1 }}>{q.pairs.map((p, i) => <div key={i} onClick={() => !answered && !matches[i] && setSelected(i)} style={{ padding: "10px 12px", borderRadius: 10, marginBottom: 6, border: "2px solid " + (selected === i ? color : matches[i] !== undefined ? "#22c55e" : "#e0e0e0"), background: matches[i] !== undefined ? "#f0fdf4" : selected === i ? color + "12" : "#fafafa", cursor: answered || matches[i] !== undefined ? "default" : "pointer", fontSize: 13, fontWeight: 600, transition: "all .15s" }}>{p.term}</div>)}</div>
-        <div style={{ flex: 1 }}>{shuffled.map((si, di) => { const used = Object.values(matches).includes(di); return <div key={di} onClick={() => { if (answered || used || selected === null) return; setMatches(prev => ({ ...prev, [selected]: di })); setSelected(null); }} style={{ padding: "10px 12px", borderRadius: 10, marginBottom: 6, border: "2px solid " + (used ? "#22c55e" : "#e0e0e0"), background: used ? "#f0fdf4" : "#fafafa", cursor: answered || used || selected === null ? "default" : "pointer", fontSize: 12, color: "#555", transition: "all .15s", opacity: used ? 0.6 : 1 }}>{q.pairs[si].def}</div>; })}</div>
+    const full = Object.keys(matches).length === q.pairs.length;
+    function check() {
+      const sc = q.pairs.filter((_, i) => shuffled[matches[i]] === i).length;
+      onDone(sc === q.pairs.length, sc);
+    }
+    return <div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e", marginBottom: 12 }}>Match each term to its definition:</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: 1 }}>{q.pairs.map((p, i) => <div key={i} onClick={() => !done && matches[i] === undefined && setSel(i)} style={{ padding: "9px 11px", borderRadius: 10, marginBottom: 5, border: "2px solid " + (sel === i ? color : matches[i] !== undefined ? "#22c55e" : "#e0e0e0"), background: matches[i] !== undefined ? "#f0fdf4" : sel === i ? color + "12" : "#fafafa", cursor: done || matches[i] !== undefined ? "default" : "pointer", fontSize: 12, fontWeight: 600 }}>{p.term}</div>)}</div>
+        <div style={{ flex: 1 }}>{shuffled.map((si, di) => { const used = Object.values(matches).includes(di); return <div key={di} onClick={() => { if (done || used || sel === null) return; setMatches(p => ({ ...p, [sel]: di })); setSel(null); }} style={{ padding: "9px 11px", borderRadius: 10, marginBottom: 5, border: "2px solid " + (used ? "#22c55e" : "#e0e0e0"), background: used ? "#f0fdf4" : "#fafafa", cursor: done || used || sel === null ? "default" : "pointer", fontSize: 11, color: "#555", opacity: used ? 0.6 : 1 }}>{q.pairs[si].def}</div>; })}</div>
       </div>
-      {!answered && allMatched && <button onClick={() => { const order = q.pairs.map((_, i) => shuffled.indexOf(matches[i] !== undefined ? (() => { for (const [ti, di] of Object.entries(matches)) { if (parseInt(ti) === i) return shuffled[di]; } return -1; })() : -1)); const correct = q.pairs.map((_, i) => matches[i] !== undefined ? shuffled[matches[i]] === i : false); onAnswer(correct.map((c, i) => c ? i : -1)); }} style={{ marginTop: 8, width: "100%", padding: "10px 0", borderRadius: 10, border: "none", background: color, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Check Answers</button>}
-      {answered && <div style={{ marginTop: 8, fontSize: 12, color: answer?.correct ? "#22c55e" : "#f59e0b", fontWeight: 700 }}>{answer?.correct ? "\u2705 Perfect match!" : `Got ${answer?.matchScore || 0}/${q.pairs.length} correct`}</div>}
-    </div>);
+      {!done && full && <button onClick={check} style={{ marginTop: 8, width: "100%", padding: "10px", borderRadius: 10, border: "none", background: color, color: "#fff", fontWeight: 700, cursor: "pointer" }}>Check</button>}
+      {done && <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: ans?.correct ? "#22c55e" : "#f59e0b" }}>{ans?.correct ? "\u2705 Perfect!" : `Got ${ans?.matchScore || 0}/${q.pairs.length}`}</div>}
+    </div>;
   }
 
-  /* ── SETUP PHASE ── */
+  /* ── SETUP ── */
   if (phase === "setup") return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 540, maxHeight: "90vh", overflow: "auto", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
@@ -1586,18 +1633,16 @@ Return ONLY valid JSON (no markdown, no backticks). Format:
         <div style={{ padding: 22 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Question Types</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
-            {QTYPES.map(t => <div key={t.id} onClick={() => setQTypes(p => ({ ...p, [t.id]: !p[t.id] }))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "2px solid " + (qTypes[t.id] ? subject.color : "#e0e0e0"), background: qTypes[t.id] ? subject.color + "10" : "#fafafa", cursor: "pointer", transition: "all .15s" }}>
+            {QTYPES.map(t => <div key={t.id} onClick={() => setQTypes(p => ({ ...p, [t.id]: !p[t.id] }))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "2px solid " + (qTypes[t.id] ? subject.color : "#e0e0e0"), background: qTypes[t.id] ? subject.color + "10" : "#fafafa", cursor: "pointer" }}>
               <span style={{ fontSize: 18 }}>{t.emoji}</span>
               <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: qTypes[t.id] ? subject.color : "#555" }}>{t.label}</div><div style={{ fontSize: 10, color: "#999" }}>{t.desc}</div></div>
               {qTypes[t.id] && <span style={{ color: subject.color, fontWeight: 700, fontSize: 16 }}>{"\u2713"}</span>}
             </div>)}
           </div>
-
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Number of Questions</div>
           <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
             {[3, 5, 8, 10].map(n => <button key={n} onClick={() => setQCount(n)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "2px solid " + (qCount === n ? subject.color : "#e0e0e0"), background: qCount === n ? subject.color + "15" : "#fff", color: qCount === n ? subject.color : "#666", fontWeight: qCount === n ? 700 : 400, fontSize: 14, cursor: "pointer" }}>{n}</button>)}
           </div>
-
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Study Materials (optional)</div>
           <div style={{ marginBottom: 18 }}>
             <div onClick={() => fileRef.current?.click()} style={{ border: "2px dashed #ddd", borderRadius: 12, padding: "16px 14px", textAlign: "center", cursor: "pointer", background: "#fafafa" }}>
@@ -1612,380 +1657,64 @@ Return ONLY valid JSON (no markdown, no backticks). Format:
               <button onClick={() => setQuizMats(prev => prev.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 11 }}>{"\u2715"}</button>
             </div>)}</div>}
           </div>
-
-          <button onClick={startQuiz} disabled={!anyType} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: anyType ? subject.color : "#e0e0e0", color: anyType ? "#fff" : "#aaa", fontWeight: 700, fontSize: 15, cursor: anyType ? "pointer" : "default" }}>{"\u26a1"} Generate Quiz</button>
+          <button onClick={startQuiz} disabled={!anyType} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: anyType ? subject.color : "#e0e0e0", color: anyType ? "#fff" : "#aaa", fontWeight: 700, fontSize: 15, cursor: anyType ? "pointer" : "default" }}>{"\ud83d\udee0\ufe0f"} Build My Quiz</button>
         </div>
       </div>
     </div>
   );
 
-  /* ── MAIN QUIZ MODAL (loading, question, result) ── */
+  /* ── QUIZ (loading / question / result) ── */
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 540, maxHeight: "90vh", overflow: "auto", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" }}>
         <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{hasMats ? "MATERIALS QUIZ" : "QUICK QUIZ"}</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
+          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{hasMats ? "MATERIALS QUIZ" : "QUIZ BUILDER"}</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
           {phase === "question" && <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{qi + 1}/{total}</div>}
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
         </div>
-
         <div style={{ padding: 22 }}>
-          {/* LOADING */}
-          {phase === "loading" && (
-            <div style={{ textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83e\udde0"}</div>
-              <div style={{ color: "#666", fontSize: 14 }}>{hasMats ? "Reading your materials & generating quiz..." : "Generating your quiz..."}</div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div>
-            </div>
-          )}
+          {phase === "loading" && <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83d\udee0\ufe0f"}</div><div style={{ color: "#666", fontSize: 14 }}>{hasMats ? "Reading materials & building quiz..." : "Building your quiz..."}</div><div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div></div>}
 
-          {/* QUESTION */}
-          {phase === "question" && q && (
-            <div>
-              {/* Question type badge */}
-              <div style={{ fontSize: 10, fontWeight: 700, color: subject.color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                {q.type === "mc" ? "Multiple Choice" : q.type === "tf" ? "True / False" : q.type === "short" ? "Short Answer" : q.type === "fill" ? "Fill the Blank" : q.type === "match" ? "Key Terms" : "Question"}
-              </div>
+          {phase === "question" && q && <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: subject.color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{q.type === "mc" ? "Multiple Choice" : q.type === "tf" ? "True / False" : q.type === "short" ? "Short Answer" : q.type === "fill" ? "Fill the Blank" : q.type === "match" ? "Key Terms" : "Question"}</div>
 
-              {/* MC */}
-              {(q.type === "mc" || (!q.type && q.options)) && (<>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {(q.options || []).map((opt, oi) => {
-                    const wasChosen = answered && answers[qi]?.chosen === oi;
-                    const isCorrect = q.correct === oi;
-                    const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
-                    const border = !answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0";
-                    return <div key={oi} onClick={() => !answered && answerMC(oi)} style={{ padding: "12px 14px", borderRadius: 12, border: "2px solid " + border, background: bg, cursor: answered ? "default" : "pointer", fontSize: 13, color: "#333", display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 24, height: 24, borderRadius: "50%", background: !answered ? subject.color + "20" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#eee", color: !answered ? subject.color : isCorrect || wasChosen ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
-                      {opt}
-                    </div>;
-                  })}
-                </div>
-              </>)}
+            {/* MC */}
+            {(q.type === "mc" || (!q.type && q.options)) && <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{(q.options || []).map((opt, oi) => { const wc = answered && answers[qi]?.chosen === oi; const ic = q.correct === oi; return <div key={oi} onClick={() => !answered && answerMC(oi)} style={{ padding: "12px 14px", borderRadius: 12, border: "2px solid " + (!answered ? "#e0e0e0" : ic ? "#22c55e" : wc ? "#ef4444" : "#e0e0e0"), background: !answered ? "#fafafa" : ic ? "#dcfce7" : wc ? "#fee2e2" : "#fafafa", cursor: answered ? "default" : "pointer", fontSize: 13, color: "#333", display: "flex", alignItems: "center", gap: 10 }}><span style={{ width: 24, height: 24, borderRadius: "50%", background: !answered ? subject.color + "20" : ic ? "#22c55e" : wc ? "#ef4444" : "#eee", color: !answered ? subject.color : ic || wc ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>{opt}</div>; })}</div></>}
 
-              {/* TF */}
-              {q.type === "tf" && (<>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {[true, false].map(val => {
-                    const wasChosen = answered && answers[qi]?.chosen === val;
-                    const isCorrect = q.correct === val;
-                    const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
-                    return <div key={String(val)} onClick={() => !answered && answerTF(val)} style={{ flex: 1, padding: "16px", borderRadius: 12, border: "2px solid " + (!answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0"), background: bg, cursor: answered ? "default" : "pointer", textAlign: "center", fontSize: 15, fontWeight: 700, color: "#333" }}>{val ? "\u2705 True" : "\u274c False"}</div>;
-                  })}
-                </div>
-              </>)}
+            {/* TF */}
+            {q.type === "tf" && <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div><div style={{ display: "flex", gap: 10 }}>{[true, false].map(v => { const wc = answered && answers[qi]?.chosen === v; const ic = q.correct === v; return <div key={String(v)} onClick={() => !answered && answerTF(v)} style={{ flex: 1, padding: 16, borderRadius: 12, border: "2px solid " + (!answered ? "#e0e0e0" : ic ? "#22c55e" : wc ? "#ef4444" : "#e0e0e0"), background: !answered ? "#fafafa" : ic ? "#dcfce7" : wc ? "#fee2e2" : "#fafafa", cursor: answered ? "default" : "pointer", textAlign: "center", fontSize: 15, fontWeight: 700, color: "#333" }}>{v ? "\u2705 True" : "\u274c False"}</div>; })}</div></>}
 
-              {/* SHORT ANSWER */}
-              {q.type === "short" && (<>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>
-                {!answered ? <div style={{ display: "flex", gap: 8 }}>
-                  <input value={typedAns} onChange={e => setTypedAns(e.target.value)} onKeyDown={e => e.key === "Enter" && answerTyped()} placeholder="Type your answer..." style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 14, outline: "none" }} autoFocus />
-                  <button onClick={answerTyped} disabled={!typedAns.trim()} style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: typedAns.trim() ? subject.color : "#e0e0e0", color: typedAns.trim() ? "#fff" : "#aaa", fontWeight: 700, cursor: typedAns.trim() ? "pointer" : "default" }}>{"\u2191"}</button>
-                </div> : <div style={{ padding: "10px 14px", borderRadius: 10, background: answers[qi]?.correct ? "#dcfce7" : "#fee2e2", border: "1px solid " + (answers[qi]?.correct ? "#86efac" : "#fca5a5") }}>
-                  <div style={{ fontSize: 13 }}><strong>Your answer:</strong> {answers[qi]?.typed}</div>
-                  {!answers[qi]?.correct && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}><strong>Expected:</strong> {q.answer}</div>}
-                </div>}
-              </>)}
+            {/* SHORT / FILL */}
+            {(q.type === "short" || q.type === "fill") && <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>{!answered ? <div style={{ display: "flex", gap: 8 }}><input value={typedAns} onChange={e => setTypedAns(e.target.value)} onKeyDown={e => e.key === "Enter" && answerTyped()} placeholder={q.type === "fill" ? "Fill in the blank..." : "Type your answer..."} style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 14, outline: "none" }} autoFocus /><button onClick={answerTyped} disabled={!typedAns.trim()} style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: typedAns.trim() ? subject.color : "#e0e0e0", color: typedAns.trim() ? "#fff" : "#aaa", fontWeight: 700, cursor: typedAns.trim() ? "pointer" : "default" }}>{"\u2191"}</button></div> : <div style={{ padding: "10px 14px", borderRadius: 10, background: answers[qi]?.correct ? "#dcfce7" : "#fee2e2", border: "1px solid " + (answers[qi]?.correct ? "#86efac" : "#fca5a5") }}><div style={{ fontSize: 13 }}><strong>Your answer:</strong> {answers[qi]?.typed}</div>{!answers[qi]?.correct && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}><strong>Expected:</strong> {q.answer}</div>}</div>}</>}
 
-              {/* FILL THE BLANK */}
-              {q.type === "fill" && (<>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>
-                {!answered ? <div style={{ display: "flex", gap: 8 }}>
-                  <input value={typedAns} onChange={e => setTypedAns(e.target.value)} onKeyDown={e => e.key === "Enter" && answerTyped()} placeholder="Fill in the blank..." style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 14, outline: "none" }} autoFocus />
-                  <button onClick={answerTyped} disabled={!typedAns.trim()} style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: typedAns.trim() ? subject.color : "#e0e0e0", color: typedAns.trim() ? "#fff" : "#aaa", fontWeight: 700, cursor: typedAns.trim() ? "pointer" : "default" }}>{"\u2191"}</button>
-                </div> : <div style={{ padding: "10px 14px", borderRadius: 10, background: answers[qi]?.correct ? "#dcfce7" : "#fee2e2", border: "1px solid " + (answers[qi]?.correct ? "#86efac" : "#fca5a5") }}>
-                  <div style={{ fontSize: 13 }}><strong>Your answer:</strong> {answers[qi]?.typed}</div>
-                  {!answers[qi]?.correct && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}><strong>Answer:</strong> {q.answer}</div>}
-                </div>}
-              </>)}
+            {/* MATCH */}
+            {q.type === "match" && q.pairs && <MatchQ q={q} onDone={(c, sc) => { setAnswers(p => [...p, { correct: c, matchScore: sc, type: "match" }]); if (c) onXP(25, "Match perfect"); else if (sc >= 2) onXP(10, "Match partial"); setTimeout(nextQ, 1500); }} done={answered} ans={answers[qi]} color={subject.color} />}
 
-              {/* MATCH */}
-              {q.type === "match" && q.pairs && <MatchQuestion q={q} onAnswer={order => { const correct = order.every((v, i) => v === i); const matchScore = order.filter((v, i) => v === i).length; setAnswers(prev => [...prev, { correct, matchScore, type: "match" }]); if (correct) onXP(25, "Quiz match perfect"); else if (matchScore >= 2) onXP(10, "Quiz match partial"); setTimeout(nextQ, 1500); }} answered={answered} answer={answers[qi]} color={subject.color} />}
-
-              {/* Explanation */}
-              {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
-
-              {/* Progress dots */}
-              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 18 : 7, height: 7, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
-            </div>
-          )}
-
-          {/* RESULT */}
-          {phase === "result" && (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              {err ? <><div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26a0\ufe0f"}</div><div style={{ color: "#666", marginBottom: 16 }}>{err}</div></> : <>
-                <div style={{ fontSize: 48, marginBottom: 8 }}>{pct >= 80 ? "\ud83c\udf89" : pct >= 60 ? "\ud83d\udc4d" : pct >= 40 ? "\ud83d\udcaa" : "\ud83d\udca1"}</div>
-                <div style={{ fontSize: 32, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
-                <div style={{ fontSize: 14, color: "#888", marginBottom: 4 }}>{pct >= 80 ? "Excellent!" : pct >= 60 ? "Good job!" : pct >= 40 ? "Getting there!" : "Keep practising!"}</div>
-                <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 8 }}>+{answers.reduce((a, ans) => a + (ans.correct ? (ans.type === "short" || ans.type === "fill" || ans.type === "match" ? 25 : 20) : (ans.matchScore >= 2 ? 10 : 0)), 0) + 30} XP earned</div>
-
-                {/* Materials coverage */}
-                {coverage !== null && hasMats && (
-                  <div style={{ margin: "12px auto 16px", maxWidth: 300, padding: "14px 16px", borderRadius: 12, background: "#f0f9ff", border: "1px solid #bae6fd" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>{"\ud83d\udcca"} Materials Coverage</div>
-                    <div style={{ height: 8, borderRadius: 4, background: "#e0f2fe" }}><div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#0369a1,#38bdf8)", width: coverage + "%", transition: "width .5s" }} /></div>
-                    <div style={{ fontSize: 12, color: "#0369a1", marginTop: 4, fontWeight: 600 }}>~{coverage}% of your materials covered</div>
-                    {coverage < 60 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Try another quiz to cover more!</div>}
-                  </div>
-                )}
-
-                {questions.map((q, i) => (
-                  <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 5, fontSize: 12 }}>
-                    <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span>{" "}
-                    {(q.q || "Match terms").slice(0, 55)}{(q.q || "").length > 55 ? "..." : ""}
-                    {!answers[i]?.correct && q.type === "mc" && <span style={{ color: "#666" }}> \u2014 {q.options[q.correct]}</span>}
-                    {!answers[i]?.correct && (q.type === "short" || q.type === "fill") && <span style={{ color: "#666" }}> \u2014 {q.answer}</span>}
-                    {!answers[i]?.correct && q.type === "tf" && <span style={{ color: "#666" }}> \u2014 {q.correct ? "True" : "False"}</span>}
-                  </div>
-                ))}
-              </>}
-              <button onClick={onClose} style={{ marginTop: 16, padding: "12px 28px", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════
-   QUIZ BUILDER — custom revision quiz from materials + description
-   ═══════════════════════════════════════════════════════════════════ */
-
-function QuizBuilder({ subject, profile, mats, pastQuizzes, onClose, onXP, onSaveQuiz }) {
-  const [phase, setPhase] = useState("setup"); // "setup"|"loading"|"question"|"result"
-  const [desc, setDesc] = useState("");
-  const [numQ, setNumQ] = useState(10);
-  const [selMats, setSelMats] = useState(mats.map(m => m.id)); // all selected by default
-  const [questions, setQuestions] = useState([]);
-  const [qi, setQi] = useState(0);
-  const [answers, setAnswers] = useState([]);
-  const [err, setErr] = useState(null);
-  const [loadMsg, setLoadMsg] = useState("Generating your quiz...");
-
-  const toggleMat = id => setSelMats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-
-  async function generate() {
-    setPhase("loading");
-    const board = profile.examBoards?.[subject.id] || "";
-    const usedMats = mats.filter(m => selMats.includes(m.id));
-
-    // Build material context for the prompt
-    let matContext = "";
-    for (const m of usedMats) {
-      if (m.isText && m.textContent) matContext += `\n[${m.name}]:\n${m.textContent.slice(0, 3000)}\n---\n`;
-      else if (m.isImg || m.isPdf) matContext += `\n[${m.name}]: (uploaded ${m.type} file)\n`;
-    }
-
-    // Include past quiz summaries so questions aren't repeated
-    let pastContext = "";
-    if (pastQuizzes?.length) {
-      const recent = pastQuizzes.slice(-3);
-      pastContext = "\n\nPREVIOUS QUIZZES (do NOT repeat these questions, generate DIFFERENT ones):\n" + recent.map(pq => pq.questions?.map(q => q.q).join("; ") || "").join("\n");
-    }
-
-    const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
-
-    // For larger quizzes, generate in batches
-    const allQ = [];
-    const batchSize = 8;
-    const batches = Math.ceil(numQ / batchSize);
-
-    try {
-      for (let b = 0; b < batches; b++) {
-        const remaining = numQ - allQ.length;
-        const thisCount = Math.min(batchSize, remaining);
-        setLoadMsg(`Generating questions ${allQ.length + 1}-${allQ.length + thisCount} of ${numQ}...`);
-
-        const alreadyGenerated = allQ.length > 0 ? "\n\nQuestions already generated (do NOT repeat):\n" + allQ.map(q => q.q).join("\n") : "";
-
-        // Build API messages — include materials as user content if available
-        const apiMsgs = [];
-        const mediaContent = usedMats.filter(m => m.isImg || m.isPdf).map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } }));
-        if (mediaContent.length) {
-          apiMsgs.push({ role: "user", content: [...mediaContent, { type: "text", text: "These are the student's revision materials. Use them to generate quiz questions." }] });
-          apiMsgs.push({ role: "assistant", content: "I'll use these materials to create targeted quiz questions." });
-        }
-
-        const prompt = `Generate exactly ${thisCount} multiple-choice questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier.
-${desc ? "\nTEST DESCRIPTION: " + desc : ""}
-${matContext ? "\nREVISION MATERIALS:\n" + matContext : ""}${pastContext}${alreadyGenerated}
-
-Requirements:
-- Questions should test understanding, not just recall
-- Mix difficulty: some straightforward, some requiring application
-- Base questions on the materials provided where possible
-- Each question must have exactly 4 options with one correct answer
-- Include a brief explanation for the correct answer
-
-Return ONLY valid JSON array (no markdown, no backticks):
-[{"q":"question text","options":["A","B","C","D"],"correct":0,"explanation":"brief explanation","topic":"topic name"}]
-where correct is the 0-based index.`;
-
-        apiMsgs.push({ role: "user", content: prompt });
-        const raw = await apiSend(sys, apiMsgs, 2400);
-        const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-        if (Array.isArray(parsed)) allQ.push(...parsed.slice(0, thisCount));
-      }
-
-      if (allQ.length >= 3) {
-        setQuestions(allQ.slice(0, numQ));
-        setPhase("question");
-      } else throw new Error("bad");
-    } catch (e) {
-      setErr(e.message === "bad" ? "Couldn't generate quiz. Try again!" : e.message);
-      setPhase("result");
-    }
-  }
-
-  function answer(idx) {
-    const correct = questions[qi].correct === idx;
-    const newAnswers = [...answers, { chosen: idx, correct }];
-    setAnswers(newAnswers);
-    if (correct) onXP(20, "Custom quiz correct");
-    setTimeout(() => {
-      if (qi < questions.length - 1) setQi(qi + 1);
-      else { onXP(50, "Custom quiz completed"); setPhase("result"); }
-    }, 1200);
-  }
-
-  function saveResults() {
-    const score = answers.filter(a => a.correct).length;
-    const total = questions.length;
-    const topicScores = {};
-    questions.forEach((q, i) => {
-      const t = q.topic || "General";
-      if (!topicScores[t]) topicScores[t] = { right: 0, total: 0 };
-      topicScores[t].total++;
-      if (answers[i]?.correct) topicScores[t].right++;
-    });
-    const result = {
-      date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-      type: "custom_quiz",
-      subject: subject.id,
-      description: desc || "Custom quiz",
-      score, total,
-      percentage: Math.round(score / total * 100),
-      topicScores: Object.fromEntries(Object.entries(topicScores).map(([t, v]) => [t, Math.round(v.right / v.total * 100)])),
-      questions: questions.map((q, i) => ({ q: q.q, correct: answers[i]?.correct, topic: q.topic })),
-      materialsUsed: mats.filter(m => selMats.includes(m.id)).map(m => m.name),
-    };
-    onSaveQuiz(result);
-  }
-
-  const score = answers.filter(a => a.correct).length;
-  const total = questions.length;
-  const q = questions[qi];
-  const answered = answers.length > qi;
-  const pct = total ? Math.round(score / total * 100) : 0;
-
-  const modalStyle = { position: "fixed", inset: 0, background: "rgba(10,10,20,0.9)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
-  const cardStyle = { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 580, maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 32px 80px rgba(0,0,0,0.4)" };
-
-  return (
-    <div style={modalStyle}>
-      <div style={cardStyle}>
-        <div style={{ background: subject.gradient, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>QUIZ BUILDER</div><div style={{ color: "#fff", fontSize: 18, fontWeight: 700, fontFamily: "'Playfair Display',serif" }}>{subject.emoji} {subject.label}</div></div>
-          {phase === "question" && <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "4px 10px" }}>{qi + 1}/{total}</div>}
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
-        </div>
-
-        <div style={{ overflowY: "auto", flex: 1, padding: 22 }}>
-          {phase === "setup" && (<div>
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>What are you revising for?</div>
-              <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} placeholder="e.g. End of topic test on WW2 causes, Chapter 5-7 vocabulary test, Mock exam Paper 1..." style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.5, outline: "none", resize: "vertical" }} />
-            </div>
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Number of questions</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {[5, 10, 15, 20, 30].map(n => <button key={n} onClick={() => setNumQ(n)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "2px solid " + (numQ === n ? subject.color : "#e0e0e0"), background: numQ === n ? subject.color + "15" : "#fff", color: numQ === n ? subject.color : "#666", fontWeight: numQ === n ? 700 : 400, cursor: "pointer", fontSize: 14 }}>{n}</button>)}
-              </div>
-            </div>
-            {mats.length > 0 && <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Revision materials to include</div>
-              <div style={{ fontSize: 11, color: "#999", marginBottom: 8 }}>Questions will be based on these files</div>
-              {mats.map(m => {
-                const on = selMats.includes(m.id);
-                return <div key={m.id} onClick={() => toggleMat(m.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "2px solid " + (on ? subject.color : "#eee"), background: on ? subject.color + "08" : "#fafafa", marginBottom: 6, cursor: "pointer" }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, border: "2px solid " + (on ? subject.color : "#ccc"), background: on ? subject.color : "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>{on ? "\u2713" : ""}</div>
-                  <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "#333" }}>{m.name}</div><div style={{ fontSize: 10, color: "#999" }}>{m.type.toUpperCase()} {"\u00b7"} {(m.size / 1024).toFixed(0)}KB</div></div>
-                </div>;
-              })}
-            </div>}
-            {mats.length === 0 && <div style={{ padding: "16px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee", marginBottom: 18, fontSize: 12, color: "#888" }}>{"\ud83d\udca1"} Tip: Upload revision materials first (tap {"\ud83d\udcce"} Materials in the chat header) and the quiz will be based on them.</div>}
-            <button onClick={generate} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>{"\ud83d\udee0\ufe0f"} Build My Quiz</button>
-          </div>)}
-
-          {phase === "loading" && (
-            <div style={{ textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83d\udee0\ufe0f"}</div>
-              <div style={{ color: "#666", fontSize: 14, marginBottom: 4 }}>{loadMsg}</div>
-              <div style={{ color: "#aaa", fontSize: 12 }}>This may take a moment for longer quizzes</div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div>
-            </div>
-          )}
-
-          {phase === "question" && q && (<div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 4, lineHeight: 1.6 }}>{q.q}</div>
-            {q.topic && <div style={{ fontSize: 11, color: "#999", marginBottom: 14 }}>Topic: {q.topic}</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {q.options.map((opt, oi) => {
-                const wasChosen = answered && answers[qi]?.chosen === oi;
-                const isCorrect = q.correct === oi;
-                const bg = !answered ? "#fafafa" : isCorrect ? "#dcfce7" : wasChosen ? "#fee2e2" : "#fafafa";
-                const border = !answered ? "#e0e0e0" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#e0e0e0";
-                return <div key={oi} onClick={() => !answered && answer(oi)} style={{ padding: "12px 16px", borderRadius: 12, border: "2px solid " + border, background: bg, cursor: answered ? "default" : "pointer", fontSize: 14, color: "#333", transition: "all .2s", display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: "50%", background: !answered ? subject.color + "20" : isCorrect ? "#22c55e" : wasChosen ? "#ef4444" : "#eee", color: !answered ? subject.color : isCorrect || wasChosen ? "#fff" : "#aaa", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{String.fromCharCode(65 + oi)}</span>
-                  {opt}
-                </div>;
-              })}
-            </div>
             {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
-            <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 14 : 6, height: 6, borderRadius: 3, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
-          </div>)}
+            <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 18 : 7, height: 7, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+          </div>}
 
-          {phase === "result" && (<div style={{ textAlign: "center", padding: "10px 0" }}>
+          {phase === "result" && <div style={{ textAlign: "center", padding: "20px 0" }}>
             {err ? <><div style={{ fontSize: 32, marginBottom: 8 }}>{"\u26a0\ufe0f"}</div><div style={{ color: "#666", marginBottom: 16 }}>{err}</div></> : <>
               <div style={{ fontSize: 48, marginBottom: 8 }}>{pct >= 80 ? "\ud83c\udf89" : pct >= 60 ? "\ud83d\udc4d" : pct >= 40 ? "\ud83d\udcaa" : "\ud83d\udca1"}</div>
-              <div style={{ fontSize: 36, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#1a1a2e", fontFamily: "'Playfair Display',serif" }}>{score}/{total}</div>
               <div style={{ fontSize: 14, color: "#888", marginBottom: 4 }}>{pct >= 80 ? "Excellent!" : pct >= 60 ? "Good job!" : pct >= 40 ? "Getting there!" : "Keep practising!"}</div>
-              <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 16 }}>+{score * 20 + 50} XP earned</div>
-              {/* Topic breakdown */}
-              {(() => {
-                const topicMap = {};
-                questions.forEach((q, i) => { const t = q.topic || "General"; if (!topicMap[t]) topicMap[t] = { right: 0, total: 0 }; topicMap[t].total++; if (answers[i]?.correct) topicMap[t].right++; });
-                return Object.entries(topicMap).length > 1 && <div style={{ textAlign: "left", marginBottom: 16, padding: "12px 14px", borderRadius: 12, background: "#f8f8f8" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", marginBottom: 8 }}>TOPIC BREAKDOWN</div>
-                  {Object.entries(topicMap).map(([t, v]) => {
-                    const tp = Math.round(v.right / v.total * 100);
-                    return <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{ flex: 1, fontSize: 12, color: "#444" }}>{t}</div>
-                      <div style={{ width: 60, height: 5, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: tp >= 70 ? "#22c55e" : tp >= 40 ? "#f59e0b" : "#ef4444", width: tp + "%" }} /></div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "#666", width: 40 }}>{v.right}/{v.total}</div>
-                    </div>;
-                  })}
-                </div>;
-              })()}
-              <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
-                {questions.map((q, i) => (
-                  <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 4, fontSize: 12 }}>
-                    <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span> {q.q.slice(0, 70)}{q.q.length > 70 ? "..." : ""}
-                    {!answers[i]?.correct && <span style={{ color: "#666" }}> \u2014 {q.options[q.correct]}</span>}
-                  </div>
-                ))}
-              </div>
+              <div style={{ fontSize: 13, color: subject.color, fontWeight: 700, marginBottom: 8 }}>+{answers.reduce((a, x) => a + (x.correct ? (x.type === "short" || x.type === "fill" || x.type === "match" ? 25 : 20) : (x.matchScore >= 2 ? 10 : 0)), 0) + 30} XP</div>
+              {coverage !== null && hasMats && <div style={{ margin: "12px auto 16px", maxWidth: 300, padding: "14px 16px", borderRadius: 12, background: "#f0f9ff", border: "1px solid #bae6fd" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#0369a1", marginBottom: 6 }}>{"\ud83d\udcca"} Materials Coverage</div>
+                <div style={{ height: 8, borderRadius: 4, background: "#e0f2fe" }}><div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#0369a1,#38bdf8)", width: coverage + "%", transition: "width .5s" }} /></div>
+                <div style={{ fontSize: 12, color: "#0369a1", marginTop: 4, fontWeight: 600 }}>~{coverage}% of your materials covered</div>
+                {coverage < 60 && <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>Try another quiz to cover more!</div>}
+              </div>}
+              {questions.map((q, i) => <div key={i} style={{ textAlign: "left", padding: "8px 12px", borderRadius: 10, background: answers[i]?.correct ? "#f0fdf4" : "#fef2f2", marginBottom: 5, fontSize: 12 }}>
+                <span style={{ fontWeight: 700 }}>{answers[i]?.correct ? "\u2705" : "\u274c"}</span> {(q.q || "Match terms").slice(0, 55)}{(q.q || "").length > 55 ? "..." : ""}
+                {!answers[i]?.correct && q.type === "mc" && q.options && <span style={{ color: "#666" }}> {"\u2014"} {q.options[q.correct]}</span>}
+                {!answers[i]?.correct && (q.type === "short" || q.type === "fill") && <span style={{ color: "#666" }}> {"\u2014"} {q.answer}</span>}
+                {!answers[i]?.correct && q.type === "tf" && <span style={{ color: "#666" }}> {"\u2014"} {q.correct ? "True" : "False"}</span>}
+              </div>)}
             </>}
-            <div style={{ display: "flex", gap: 8 }}>
-              {!err && <button onClick={() => { saveResults(); onClose(); }} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{"\ud83d\udcbe"} Save & Close</button>}
-              <button onClick={onClose} style={{ flex: err ? 1 : 0, padding: "12px 20px", borderRadius: 12, border: "2px solid #e0e0e0", background: "#fff", color: "#666", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Close</button>
-            </div>
-          </div>)}
+            <button onClick={onClose} style={{ marginTop: 16, padding: "12px 28px", borderRadius: 12, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
+          </div>}
         </div>
       </div>
     </div>
@@ -2117,36 +1846,6 @@ export default function App() {
   }
 
   // Save custom quiz results to memory + Supabase
-  function saveQuizResult(result) {
-    const sid = result.subject;
-    const summaryText = `QUIZ RESULT: "${result.description}" — ${result.score}/${result.total} (${result.percentage}%).\nTopics: ${Object.entries(result.topicScores || {}).map(([t, p]) => t + ": " + p + "%").join(", ")}.\nMaterials used: ${(result.materialsUsed || []).join(", ") || "none"}.\nAreas to focus on: ${result.questions?.filter(q => !q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "all good!"}`;
-    const data = {
-      date: result.date,
-      type: "custom_quiz",
-      topics: Object.keys(result.topicScores || {}),
-      strengths: result.questions?.filter(q => q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i) || [],
-      weaknesses: result.questions?.filter(q => !q.correct).map(q => q.topic).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i) || [],
-      confidenceScores: result.topicScores || {},
-      messageCount: result.total,
-      examQuestionsAttempted: result.total,
-      rawSummaryText: summaryText,
-      quizData: result,
-    };
-    setMemory(prev => addSessionToMem(prev, sid, data));
-    if (profile) sbSave(profile.name, sid, result.date, JSON.stringify(data));
-    // Update topic progress from quiz scores
-    if (result.topicScores) {
-      setTopicData(prev => {
-        let updated = prev;
-        for (const [topic, conf] of Object.entries(result.topicScores)) {
-          updated = recordTopicStudy(updated, sid, topic, conf);
-        }
-        if (profile) sbSaveSetting(profile.name, "topics", updated);
-        return updated;
-      });
-    }
-  }
-
   // Save profile to both localStorage and Supabase
   function updateProfile(p) {
     saveProfile(p); // also calls setActiveStudent
@@ -2317,9 +2016,9 @@ export default function App() {
         {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
         {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
-        {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
+        {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
         {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => studyTopic(topicsFor, topic)} onClose={() => setTopicsFor(null)} />}
-        {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} mats={mats[buildQuizFor.id] || []} pastQuizzes={getSessions(memory, buildQuizFor.id).filter(s => s.type === "custom_quiz")} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onSaveQuiz={saveQuizResult} />}
+        {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} />}
 
         {/* Header */}
         <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
@@ -2410,7 +2109,7 @@ export default function App() {
 
             <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #eee" }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udca1"} Tips</div>
-              {[["Quick Quiz", "Tap \u26a1 on any subject for a 5-question challenge."], ["Earn XP", "+5 per message, +25 per summary, +20 per correct quiz answer."], ["Upload materials", "Tap \ud83d\udcce to upload worksheets \u2014 tutor uses them directly."], ["Keep your streak", "Open the app daily to build your streak!"]].map(([t, d]) => <div key={t} style={{ display: "flex", gap: 10, marginBottom: 8 }}><div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 12, minWidth: 120 }}>{t}</div><div style={{ color: "#888", fontSize: 12 }}>{d}</div></div>)}
+              {[["Quick Quiz", "Tap \u26a1 for 10 instant questions on your weak topics."], ["Quiz Builder", "Tap \ud83d\udee0\ufe0f to customise question types and upload materials."], ["Earn XP", "+5 per message, +25 per summary, +20 per correct answer."], ["Keep your streak", "Open the app daily to build your streak!"]].map(([t, d]) => <div key={t} style={{ display: "flex", gap: 10, marginBottom: 8 }}><div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 12, minWidth: 120 }}>{t}</div><div style={{ color: "#888", fontSize: 12 }}>{d}</div></div>)}
             </div>
           </div>
         ) : (
