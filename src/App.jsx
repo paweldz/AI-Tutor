@@ -1980,8 +1980,13 @@ export default function App() {
     const text = override || input.trim();
     if (!text || loading || !active || !profile) return;
     const userMsg = { role: "user", content: text };
-    const updated = [...msgs, userMsg];
-    setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: updated } }));
+    // Read latest messages from state to avoid stale closure (e.g. after quiz summary injection)
+    let updated;
+    setSessions(prev => {
+      const latest = prev[active]?.messages || [];
+      updated = [...latest, userMsg];
+      return { ...prev, [active]: { ...prev[active], messages: updated } };
+    });
     if (!override) setInput("");
     setLoading(true);
     const sys = buildSystemPrompt(active, profile, curMem, curMats, examMode, profile.tutorCharacters?.[active]);
