@@ -2110,7 +2110,8 @@ export default function App() {
   const langPractice = { spanish: "\u00bfPodemos practicar conversaci\u00f3n?", french: "On peut pratiquer la conversation?", german: "K\u00f6nnen wir \u00fcben?" };
   const greet = langGreetings[active] || "Let's practise speaking";
   const prac = langPractice[active] || "Can we practise conversation?";
-  const quickPrompts = convoMode ? [greet, prac, "Correct my pronunciation"] : voiceMode ? [greet, "Correct my pronunciation", ...basePrompts] : basePrompts;
+  const continuePrompt = curMem.length > 0 ? ["Pick up where we left off last session"] : [];
+  const quickPrompts = convoMode ? [greet, prac, "Correct my pronunciation"] : voiceMode ? [greet, "Correct my pronunciation", ...basePrompts] : [...continuePrompt, ...basePrompts];
 
   if (!profile) return <Setup onDone={updateProfile} />;
 
