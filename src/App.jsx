@@ -2043,25 +2043,37 @@ export default function App() {
     const total = questions.length;
     const pct = total ? Math.round(score / total * 100) : 0;
     const subLabel = SUBJECTS[subjectId]?.label || subjectId;
-    const lines = questions.map((q, i) => {
+    const wrong = [];
+    const right = [];
+    questions.forEach((q, i) => {
       const a = answers[i];
-      const status = a?.correct ? "CORRECT" : "INCORRECT";
-      let detail = "";
-      if (q.type === "mc" || (!q.type && q.options)) {
-        const chosen = q.options?.[a?.chosen] || "N/A";
-        const correct = q.options?.[q.correct] || "N/A";
-        detail = `Student answered: ${chosen}` + (a?.correct ? "" : ` | Correct answer: ${correct}`);
-      } else if (q.type === "tf") {
-        detail = `Student answered: ${a?.chosen ? "True" : "False"}` + (a?.correct ? "" : ` | Correct answer: ${q.correct ? "True" : "False"}`);
-      } else if (q.type === "short" || q.type === "fill") {
-        detail = `Student answered: "${a?.typed || ""}"` + (a?.correct ? "" : ` | Correct answer: ${q.answer}`);
-      } else if (q.type === "match") {
-        detail = a?.correct ? "All pairs matched correctly" : `Matched ${a?.matchScore || 0}/${q.pairs?.length || 0} correctly`;
+      const qText = q.q || "Match terms to definitions";
+      if (a?.correct) {
+        right.push(qText);
+      } else {
+        let correctAns = "";
+        if (q.type === "mc" || (!q.type && q.options)) {
+          const myAns = q.options?.[a?.chosen] || "?";
+          correctAns = `I put "${myAns}" but the answer was "${q.options?.[q.correct] || "?"}"`;
+        } else if (q.type === "tf") {
+          correctAns = `I said ${a?.chosen ? "True" : "False"} but it was ${q.correct ? "True" : "False"}`;
+        } else if (q.type === "short" || q.type === "fill") {
+          correctAns = `I wrote "${a?.typed || "?"}" but the answer was "${q.answer}"`;
+        } else if (q.type === "match") {
+          correctAns = `I only matched ${a?.matchScore || 0} out of ${q.pairs?.length || 0} correctly`;
+        }
+        wrong.push(`- ${qText} — ${correctAns}`);
       }
-      return `${i + 1}. [${status}] ${q.q || "Match terms to definitions"}\n   ${detail}`;
-    }).join("\n");
+    });
 
-    const summary = `[QUIZ RESULTS — ${quizType === "builder" ? "Quiz Builder" : "Quick Quiz"} — ${subLabel}]\nScore: ${score}/${total} (${pct}%)\n\n${lines}`;
+    let summary = `Hey! I just did a ${subLabel} quiz and got ${score}/${total} (${pct}%).`;
+    if (wrong.length > 0) {
+      summary += `\n\nI got these wrong:\n${wrong.join("\n")}`;
+    }
+    if (wrong.length === 0) {
+      summary += " I got everything right!";
+    }
+    summary += "\n\nAnyway, let's carry on where we left off!";
 
     // Inject into the matching subject's chat session
     const targetId = subjectId;
@@ -2080,7 +2092,7 @@ export default function App() {
     // If this subject is currently active, auto-trigger a tutor response analysing the results
     if (active === targetId) {
       setTimeout(() => {
-        send("[The student just completed the quiz shown above. Briefly acknowledge their score, highlight 1-2 specific topics they struggled with based on the incorrect answers, and offer to help explain those topics. Keep it concise and encouraging.]");
+        send("Can you quickly go over the questions I got wrong and then we can continue what we were doing before?");
       }, 300);
     }
   }
