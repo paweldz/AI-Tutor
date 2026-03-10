@@ -2067,11 +2067,14 @@ export default function App() {
     });
 
     let summary = `Hey! I just did a ${subLabel} quiz and got ${score}/${total} (${pct}%).`;
+    if (right.length > 0) {
+      summary += `\n\nI got these right:\n${right.map(q => `- ${q}`).join("\n")}`;
+    }
     if (wrong.length > 0) {
       summary += `\n\nI got these wrong:\n${wrong.join("\n")}`;
     }
     if (wrong.length === 0) {
-      summary += " I got everything right!";
+      summary += "\n\nI got everything right!";
     }
     summary += "\n\nAnyway, let's carry on where we left off!";
 
