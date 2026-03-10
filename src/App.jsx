@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.4.1 (10 Mar 2026, 09:00)";
+const APP_VERSION = "3.4.2 (10 Mar 2026, 10:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1523,6 +1523,7 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
   const [typedAns, setTypedAns] = useState("");
   const [coverage, setCoverage] = useState(null);
   const [desc, setDesc] = useState("");
+  const [loadMsg, setLoadMsg] = useState("Building your quiz...");
   const fileRef = useRef(null);
 
   const QTYPES = [
@@ -1549,7 +1550,7 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
     }
   }
 
-  function startQuiz() {
+  async function startQuiz() {
     if (!anyType) return;
     setPhase("loading");
     const selectedTypes = Object.entries(qTypes).filter(([, v]) => v).map(([k]) => k);
@@ -1562,29 +1563,44 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
       return "";
     }).join("\n");
     const board = profile.examBoards?.[subject.id] || "";
-    const matNote = hasMats ? `\n\nIMPORTANT: Base ALL questions on the uploaded materials (${quizMats.map(m => m.name).join(", ")}). Cover as many different sections as possible. Add "coveragePct" (0-100) estimating what % of the material is tested.` : "";
+    const matNote = hasMats ? `\n\nIMPORTANT: Base ALL questions on the uploaded materials (${quizMats.map(m => m.name).join(", ")}). Cover as many different sections as possible.` : "";
     const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
     const descNote = desc.trim() ? `\n\nSTUDENT'S TEST DESCRIPTION: ${desc.trim()}` : "";
-    const prompt = `Generate exactly ${qCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix difficulty.${descNote}\n\nUse ONLY these types (distribute evenly):\n${typeInstr}\n\nReturn ONLY valid JSON (no markdown, no backticks):\n{"questions":[...array...]${hasMats ? ',"coveragePct":50' : ""}}${matNote}`;
-    const apiMsgs = [];
+
+    // Build material messages (reused across batches)
+    const matMsgs = [];
     const media = quizMats.filter(m => m.isImg || m.isPdf).map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } }));
     const textMat = quizMats.filter(m => m.isText).map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n");
     if (media.length || textMat) {
       const parts = [...media];
       parts.push({ type: "text", text: textMat ? "STUDY MATERIALS:\n" + textMat : "Study materials uploaded. Base all questions on them." });
-      apiMsgs.push({ role: "user", content: parts });
-      apiMsgs.push({ role: "assistant", content: "I've reviewed the materials. I'll generate quiz questions based on them." });
+      matMsgs.push({ role: "user", content: parts });
+      matMsgs.push({ role: "assistant", content: "I've reviewed the materials. I'll generate quiz questions based on them." });
     }
-    apiMsgs.push({ role: "user", content: prompt });
-    apiSend(sys, apiMsgs, 2400).then(raw => {
-      try {
+
+    // Generate in batches of 10 for reliability
+    const batchSize = 10;
+    const allQ = [];
+    let lastCoverage = null;
+    try {
+      const batches = Math.ceil(qCount / batchSize);
+      for (let b = 0; b < batches; b++) {
+        const thisCount = Math.min(batchSize, qCount - allQ.length);
+        if (batches > 1) setLoadMsg(`Generating questions ${allQ.length + 1}\u2013${allQ.length + thisCount} of ${qCount}...`);
+        const already = allQ.length > 0 ? `\n\nQuestions already generated (do NOT repeat):\n${allQ.map(q => q.q || "match").join("\n")}` : "";
+        const covNote = (b === batches - 1 && hasMats) ? '\nAlso add "coveragePct" (0-100) estimating what % of the material is tested across ALL questions.' : "";
+        const prompt = `Generate exactly ${thisCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix difficulty.${descNote}\n\nUse ONLY these types (distribute evenly):\n${typeInstr}\n\nReturn ONLY valid JSON (no markdown, no backticks):\n{"questions":[...array...]${covNote ? ',"coveragePct":50' : ""}}${matNote}${already}${covNote}`;
+        const apiMsgs = [...matMsgs, { role: "user", content: prompt }];
+        const raw = await apiSend(sys, apiMsgs, Math.min(8000, thisCount * 200 + 400));
         const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
         const parsed = JSON.parse(cleaned);
         const qs = parsed.questions || parsed;
-        if (Array.isArray(qs) && qs.length >= 2) { setQuestions(qs.slice(0, qCount)); if (parsed.coveragePct) setCoverage(parsed.coveragePct); setPhase("question"); }
-        else throw new Error("bad");
-      } catch { setErr("Couldn't generate quiz. Try again!"); setPhase("result"); }
-    }).catch(e => { setErr(e.message); setPhase("result"); });
+        if (Array.isArray(qs)) allQ.push(...qs.slice(0, thisCount));
+        if (parsed.coveragePct) lastCoverage = parsed.coveragePct;
+      }
+      if (allQ.length >= 2) { setQuestions(allQ.slice(0, qCount)); if (lastCoverage) setCoverage(lastCoverage); setPhase("question"); }
+      else throw new Error("bad");
+    } catch (e) { setErr(e.message === "bad" ? "Couldn't generate quiz. Try again!" : e.message); setPhase("result"); }
   }
 
   function answerMC(idx) { const c = questions[qi].correct === idx; setAnswers(p => [...p, { chosen: idx, correct: c, type: "mc" }]); if (c) onXP(20, "Quiz correct"); }
@@ -1634,6 +1650,11 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
         </div>
         <div style={{ padding: 22 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Describe Your Test (optional)</div>
+          <div style={{ marginBottom: 18 }}>
+            <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} placeholder="e.g. End of topic test on Chapter 5, focus on vocabulary and grammar tenses, mock exam style questions, Year 11 revision for Paper 2..." style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.5, outline: "none", resize: "vertical" }} />
+            <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Describe what you're revising for, topics to focus on, or any special requirements</div>
+          </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Question Types</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
             {QTYPES.map(t => <div key={t.id} onClick={() => setQTypes(p => ({ ...p, [t.id]: !p[t.id] }))} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "2px solid " + (qTypes[t.id] ? subject.color : "#e0e0e0"), background: qTypes[t.id] ? subject.color + "10" : "#fafafa", cursor: "pointer" }}>
@@ -1644,7 +1665,7 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Number of Questions</div>
           <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-            {[3, 5, 8, 10].map(n => <button key={n} onClick={() => setQCount(n)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "2px solid " + (qCount === n ? subject.color : "#e0e0e0"), background: qCount === n ? subject.color + "15" : "#fff", color: qCount === n ? subject.color : "#666", fontWeight: qCount === n ? 700 : 400, fontSize: 14, cursor: "pointer" }}>{n}</button>)}
+            {[5, 10, 20, 30, 50].map(n => <button key={n} onClick={() => setQCount(n)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "2px solid " + (qCount === n ? subject.color : "#e0e0e0"), background: qCount === n ? subject.color + "15" : "#fff", color: qCount === n ? subject.color : "#666", fontWeight: qCount === n ? 700 : 400, fontSize: 14, cursor: "pointer" }}>{n}</button>)}
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Study Materials (optional)</div>
           <div style={{ marginBottom: 18 }}>
@@ -1659,11 +1680,6 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
               <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
               <button onClick={() => setQuizMats(prev => prev.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 11 }}>{"\u2715"}</button>
             </div>)}</div>}
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Describe Your Test (optional)</div>
-          <div style={{ marginBottom: 18 }}>
-            <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} placeholder="e.g. End of topic test on Chapter 5, focus on vocabulary and grammar tenses, mock exam style questions, Year 11 revision for Paper 2..." style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.5, outline: "none", resize: "vertical" }} />
-            <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Describe what you're revising for, topics to focus on, or any special requirements</div>
           </div>
           <button onClick={startQuiz} disabled={!anyType} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: anyType ? subject.color : "#e0e0e0", color: anyType ? "#fff" : "#aaa", fontWeight: 700, fontSize: 15, cursor: anyType ? "pointer" : "default" }}>{"\ud83d\udee0\ufe0f"} Build My Quiz</button>
         </div>
@@ -1681,7 +1697,7 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 10, padding: "6px 12px", cursor: "pointer" }}>{"\u2715"}</button>
         </div>
         <div style={{ padding: 22 }}>
-          {phase === "loading" && <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83d\udee0\ufe0f"}</div><div style={{ color: "#666", fontSize: 14 }}>{hasMats ? "Reading materials & building quiz..." : "Building your quiz..."}</div><div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div></div>}
+          {phase === "loading" && <div style={{ textAlign: "center", padding: 40 }}><div style={{ fontSize: 32, marginBottom: 12 }}>{"\ud83d\udee0\ufe0f"}</div><div style={{ color: "#666", fontSize: 14 }}>{loadMsg}</div><div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 16 }}>{[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: subject.color, animation: `db 1.2s ease ${i * .2}s infinite` }} />)}</div></div>}
 
           {phase === "question" && q && <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: subject.color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{q.type === "mc" ? "Multiple Choice" : q.type === "tf" ? "True / False" : q.type === "short" ? "Short Answer" : q.type === "fill" ? "Fill the Blank" : q.type === "match" ? "Key Terms" : "Question"}</div>
