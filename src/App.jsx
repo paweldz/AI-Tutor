@@ -1414,7 +1414,7 @@ function TopicsPanel({ subject, profile, topicData, onStudy, onClose }) {
    recently studied & weak topics from session memory
    ═══════════════════════════════════════════════════════════════════ */
 
-function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
+function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP, onQuizComplete }) {
   const [phase, setPhase] = useState("loading");
   const [questions, setQuestions] = useState([]);
   const [qi, setQi] = useState(0);
@@ -1448,7 +1448,15 @@ function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
     setAnswers(prev => [...prev, { chosen: idx, correct }]);
     if (correct) onXP(20, "Quiz correct");
   }
-  function nextQ() { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }
+  function nextQ() {
+    if (qi < questions.length - 1) setQi(qi + 1);
+    else {
+      onXP(30, "Quiz completed");
+      const finalAnswers = [...answers];
+      if (onQuizComplete) onQuizComplete({ questions, answers: finalAnswers, subjectId: subject.id, quizType: "quick" });
+      setPhase("result");
+    }
+  }
 
   const score = answers.filter(a => a.correct).length;
   const total = questions.length;
@@ -1511,7 +1519,7 @@ function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
    coverage tracking on results
    ═══════════════════════════════════════════════════════════════════ */
 
-function QuizBuilder({ subject, profile, onClose, onXP }) {
+function QuizBuilder({ subject, profile, onClose, onXP, onQuizComplete }) {
   const [phase, setPhase] = useState("setup");
   const [questions, setQuestions] = useState([]);
   const [qi, setQi] = useState(0);
@@ -1612,7 +1620,15 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
     else c = ua === ans || (kw.length > 0 && kw.filter(k => ua.includes(k.toLowerCase())).length >= Math.ceil(kw.length * 0.5));
     setAnswers(p => [...p, { typed: typedAns.trim(), correct: c, type: q.type, expected: q.answer }]); if (c) onXP(25, "Quiz typed correct"); setTypedAns("");
   }
-  function nextQ() { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }
+  function nextQ() {
+    if (qi < questions.length - 1) setQi(qi + 1);
+    else {
+      onXP(30, "Quiz completed");
+      const finalAnswers = [...answers];
+      if (onQuizComplete) onQuizComplete({ questions, answers: finalAnswers, subjectId: subject.id, quizType: "builder" });
+      setPhase("result");
+    }
+  }
 
   const score = answers.filter(a => a.correct).length;
   const total = questions.length;
@@ -2021,6 +2037,54 @@ export default function App() {
     } catch {} finally { setAutoSumming(false); }
   }
 
+  // Sync quiz results into tutor chat so the tutor can see student progress
+  function handleQuizComplete({ questions, answers, subjectId, quizType }) {
+    const score = answers.filter(a => a.correct).length;
+    const total = questions.length;
+    const pct = total ? Math.round(score / total * 100) : 0;
+    const subLabel = SUBJECTS[subjectId]?.label || subjectId;
+    const lines = questions.map((q, i) => {
+      const a = answers[i];
+      const status = a?.correct ? "CORRECT" : "INCORRECT";
+      let detail = "";
+      if (q.type === "mc" || (!q.type && q.options)) {
+        const chosen = q.options?.[a?.chosen] || "N/A";
+        const correct = q.options?.[q.correct] || "N/A";
+        detail = `Student answered: ${chosen}` + (a?.correct ? "" : ` | Correct answer: ${correct}`);
+      } else if (q.type === "tf") {
+        detail = `Student answered: ${a?.chosen ? "True" : "False"}` + (a?.correct ? "" : ` | Correct answer: ${q.correct ? "True" : "False"}`);
+      } else if (q.type === "short" || q.type === "fill") {
+        detail = `Student answered: "${a?.typed || ""}"` + (a?.correct ? "" : ` | Correct answer: ${q.answer}`);
+      } else if (q.type === "match") {
+        detail = a?.correct ? "All pairs matched correctly" : `Matched ${a?.matchScore || 0}/${q.pairs?.length || 0} correctly`;
+      }
+      return `${i + 1}. [${status}] ${q.q || "Match terms to definitions"}\n   ${detail}`;
+    }).join("\n");
+
+    const summary = `[QUIZ RESULTS — ${quizType === "builder" ? "Quiz Builder" : "Quick Quiz"} — ${subLabel}]\nScore: ${score}/${total} (${pct}%)\n\n${lines}`;
+
+    // Inject into the matching subject's chat session
+    const targetId = subjectId;
+    setSessions(prev => {
+      const existing = prev[targetId]?.messages || [];
+      // If session doesn't exist yet, initialise with a welcome message first
+      const base = existing.length > 0 ? existing : (() => {
+        const sub = SUBJECTS[targetId];
+        const board = profile?.examBoards?.[targetId];
+        const memCount = getSessions(memory, targetId).length;
+        return sub ? [{ role: "assistant", content: sub.welcomeMessage(profile, board, memCount) }] : [];
+      })();
+      return { ...prev, [targetId]: { ...prev[targetId], messages: [...base, { role: "user", content: summary }] } };
+    });
+
+    // If this subject is currently active, auto-trigger a tutor response analysing the results
+    if (active === targetId) {
+      setTimeout(() => {
+        send("[The student just completed the quiz shown above. Briefly acknowledge their score, highlight 1-2 specific topics they struggled with based on the incorrect answers, and offer to help explain those topics. Keep it concise and encouraging.]");
+      }, 300);
+    }
+  }
+
   const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
   const langGreetings = { spanish: "Habl\u00e9mos en espa\u00f1ol", french: "Parlons en fran\u00e7ais", german: "Lass uns Deutsch sprechen" };
   const langPractice = { spanish: "\u00bfPodemos practicar conversaci\u00f3n?", french: "On peut pratiquer la conversation?", german: "K\u00f6nnen wir \u00fcben?" };
@@ -2041,9 +2105,9 @@ export default function App() {
         {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
         {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
         {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
-        {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} />}
+        {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} onQuizComplete={handleQuizComplete} />}
         {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => studyTopic(topicsFor, topic)} onClose={() => setTopicsFor(null)} />}
-        {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} />}
+        {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onQuizComplete={handleQuizComplete} />}
 
         {/* Header */}
         <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
