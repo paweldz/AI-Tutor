@@ -11,7 +11,7 @@ import { useState, useRef, useEffect, useCallback, Component } from "react";
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-const APP_VERSION = "3.4.0 (9 Mar 2026, 16:00)";
+const APP_VERSION = "3.4.1 (10 Mar 2026, 09:00)";
 
 const GLOBAL_CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1447,8 +1447,8 @@ function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
     const correct = questions[qi].correct === idx;
     setAnswers(prev => [...prev, { chosen: idx, correct }]);
     if (correct) onXP(20, "Quiz correct");
-    setTimeout(() => { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }, 1200);
   }
+  function nextQ() { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }
 
   const score = answers.filter(a => a.correct).length;
   const total = questions.length;
@@ -1483,6 +1483,7 @@ function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP }) {
             </div>
             {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
             <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 18 : 7, height: 7, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+            {answered && <button onClick={nextQ} style={{ marginTop: 14, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{qi < questions.length - 1 ? "Next \u2192" : "See Results"}</button>}
           </div>}
 
           {phase === "result" && <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -1521,6 +1522,7 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
   const [quizMats, setQuizMats] = useState([]);
   const [typedAns, setTypedAns] = useState("");
   const [coverage, setCoverage] = useState(null);
+  const [desc, setDesc] = useState("");
   const fileRef = useRef(null);
 
   const QTYPES = [
@@ -1562,7 +1564,8 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
     const board = profile.examBoards?.[subject.id] || "";
     const matNote = hasMats ? `\n\nIMPORTANT: Base ALL questions on the uploaded materials (${quizMats.map(m => m.name).join(", ")}). Cover as many different sections as possible. Add "coveragePct" (0-100) estimating what % of the material is tested.` : "";
     const sys = `You are a GCSE ${subject.label} quiz generator. Student: ${profile.name}, ${profile.year}, ${profile.tier}. Board: ${board || "general"}.`;
-    const prompt = `Generate exactly ${qCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix difficulty.\n\nUse ONLY these types (distribute evenly):\n${typeInstr}\n\nReturn ONLY valid JSON (no markdown, no backticks):\n{"questions":[...array...]${hasMats ? ',"coveragePct":50' : ""}}${matNote}`;
+    const descNote = desc.trim() ? `\n\nSTUDENT'S TEST DESCRIPTION: ${desc.trim()}` : "";
+    const prompt = `Generate exactly ${qCount} questions for GCSE ${subject.label}${board ? " (" + board + ")" : ""}, ${profile.tier} tier. Mix difficulty.${descNote}\n\nUse ONLY these types (distribute evenly):\n${typeInstr}\n\nReturn ONLY valid JSON (no markdown, no backticks):\n{"questions":[...array...]${hasMats ? ',"coveragePct":50' : ""}}${matNote}`;
     const apiMsgs = [];
     const media = quizMats.filter(m => m.isImg || m.isPdf).map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } }));
     const textMat = quizMats.filter(m => m.isText).map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n");
@@ -1584,14 +1587,14 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
     }).catch(e => { setErr(e.message); setPhase("result"); });
   }
 
-  function answerMC(idx) { const c = questions[qi].correct === idx; setAnswers(p => [...p, { chosen: idx, correct: c, type: "mc" }]); if (c) onXP(20, "Quiz correct"); setTimeout(nextQ, 1200); }
-  function answerTF(val) { const c = questions[qi].correct === val; setAnswers(p => [...p, { chosen: val, correct: c, type: "tf" }]); if (c) onXP(20, "Quiz correct"); setTimeout(nextQ, 1200); }
+  function answerMC(idx) { const c = questions[qi].correct === idx; setAnswers(p => [...p, { chosen: idx, correct: c, type: "mc" }]); if (c) onXP(20, "Quiz correct"); }
+  function answerTF(val) { const c = questions[qi].correct === val; setAnswers(p => [...p, { chosen: val, correct: c, type: "tf" }]); if (c) onXP(20, "Quiz correct"); }
   function answerTyped() {
     const q = questions[qi]; const ua = typedAns.trim().toLowerCase(); if (!ua) return;
     let c = false; const ans = (q.answer || "").toLowerCase(); const kw = q.keywords || [];
     if (q.type === "fill") c = ua === ans || kw.some(k => ua.includes(k.toLowerCase()));
     else c = ua === ans || (kw.length > 0 && kw.filter(k => ua.includes(k.toLowerCase())).length >= Math.ceil(kw.length * 0.5));
-    setAnswers(p => [...p, { typed: typedAns.trim(), correct: c, type: q.type, expected: q.answer }]); if (c) onXP(25, "Quiz typed correct"); setTypedAns(""); setTimeout(nextQ, 1500);
+    setAnswers(p => [...p, { typed: typedAns.trim(), correct: c, type: q.type, expected: q.answer }]); if (c) onXP(25, "Quiz typed correct"); setTypedAns("");
   }
   function nextQ() { if (qi < questions.length - 1) setQi(qi + 1); else { onXP(30, "Quiz completed"); setPhase("result"); } }
 
@@ -1657,6 +1660,11 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
               <button onClick={() => setQuizMats(prev => prev.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 11 }}>{"\u2715"}</button>
             </div>)}</div>}
           </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Describe Your Test (optional)</div>
+          <div style={{ marginBottom: 18 }}>
+            <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} placeholder="e.g. End of topic test on Chapter 5, focus on vocabulary and grammar tenses, mock exam style questions, Year 11 revision for Paper 2..." style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 13, lineHeight: 1.5, outline: "none", resize: "vertical" }} />
+            <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Describe what you're revising for, topics to focus on, or any special requirements</div>
+          </div>
           <button onClick={startQuiz} disabled={!anyType} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: anyType ? subject.color : "#e0e0e0", color: anyType ? "#fff" : "#aaa", fontWeight: 700, fontSize: 15, cursor: anyType ? "pointer" : "default" }}>{"\ud83d\udee0\ufe0f"} Build My Quiz</button>
         </div>
       </div>
@@ -1688,10 +1696,11 @@ function QuizBuilder({ subject, profile, onClose, onXP }) {
             {(q.type === "short" || q.type === "fill") && <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a1a2e", marginBottom: 14, lineHeight: 1.6 }}>{q.q}</div>{!answered ? <div style={{ display: "flex", gap: 8 }}><input value={typedAns} onChange={e => setTypedAns(e.target.value)} onKeyDown={e => e.key === "Enter" && answerTyped()} placeholder={q.type === "fill" ? "Fill in the blank..." : "Type your answer..."} style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "2px solid #e0e0e0", fontSize: 14, outline: "none" }} autoFocus /><button onClick={answerTyped} disabled={!typedAns.trim()} style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: typedAns.trim() ? subject.color : "#e0e0e0", color: typedAns.trim() ? "#fff" : "#aaa", fontWeight: 700, cursor: typedAns.trim() ? "pointer" : "default" }}>{"\u2191"}</button></div> : <div style={{ padding: "10px 14px", borderRadius: 10, background: answers[qi]?.correct ? "#dcfce7" : "#fee2e2", border: "1px solid " + (answers[qi]?.correct ? "#86efac" : "#fca5a5") }}><div style={{ fontSize: 13 }}><strong>Your answer:</strong> {answers[qi]?.typed}</div>{!answers[qi]?.correct && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}><strong>Expected:</strong> {q.answer}</div>}</div>}</>}
 
             {/* MATCH */}
-            {q.type === "match" && q.pairs && <MatchQ q={q} onDone={(c, sc) => { setAnswers(p => [...p, { correct: c, matchScore: sc, type: "match" }]); if (c) onXP(25, "Match perfect"); else if (sc >= 2) onXP(10, "Match partial"); setTimeout(nextQ, 1500); }} done={answered} ans={answers[qi]} color={subject.color} />}
+            {q.type === "match" && q.pairs && <MatchQ q={q} onDone={(c, sc) => { setAnswers(p => [...p, { correct: c, matchScore: sc, type: "match" }]); if (c) onXP(25, "Match perfect"); else if (sc >= 2) onXP(10, "Match partial"); }} done={answered} ans={answers[qi]} color={subject.color} />}
 
             {answered && q.explanation && <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd", fontSize: 12, color: "#0369a1", lineHeight: 1.5 }}>{answers[qi]?.correct ? "\u2705 " : "\u274c "}{q.explanation}</div>}
             <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 16 }}>{questions.map((_, i) => <div key={i} style={{ width: i === qi ? 18 : 7, height: 7, borderRadius: 4, background: i < answers.length ? (answers[i]?.correct ? "#22c55e" : "#ef4444") : i === qi ? subject.color : "#e0e0e0", transition: "all .3s" }} />)}</div>
+            {answered && <button onClick={nextQ} style={{ marginTop: 14, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: subject.color, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{qi < questions.length - 1 ? "Next \u2192" : "See Results"}</button>}
           </div>}
 
           {phase === "result" && <div style={{ textAlign: "center", padding: "20px 0" }}>
