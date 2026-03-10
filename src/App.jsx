@@ -2080,7 +2080,7 @@ export default function App() {
     if (wrong.length === 0) {
       summary += "\n\nI got everything right!";
     }
-    summary += "\n\nAnyway, let's carry on where we left off!";
+    summary += "\n\nCan you quickly go over the questions I got wrong and then we can continue what we were doing before?";
 
     // Inject into the matching subject's chat session
     const targetId = subjectId;
@@ -2096,10 +2096,22 @@ export default function App() {
       return { ...prev, [targetId]: { ...prev[targetId], messages: [...base, { role: "user", content: summary }] } };
     });
 
-    // If this subject is currently active, auto-trigger a tutor response analysing the results
+    // If this subject is currently active, auto-trigger a tutor response to the quiz summary
     if (active === targetId) {
-      setTimeout(() => {
-        send("Can you quickly go over the questions I got wrong and then we can continue what we were doing before?");
+      setTimeout(async () => {
+        const cur = sessionsRef.current[targetId]?.messages || [];
+        if (!cur.length) return;
+        setLoading(true);
+        const sys = buildSystemPrompt(targetId, profile, getSessions(memory, targetId), mats[targetId] || [], examMode, profile.tutorCharacters?.[targetId]);
+        const textMats = (mats[targetId] || []).filter(m => m.isText);
+        const fullSys = (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
+        const apiMsgs = buildApiMsgs(mats[targetId] || [], cur.map(m => ({ role: m.role, content: m.content })));
+        try {
+          const reply = await apiSend(fullSys, apiMsgs);
+          setSessions(prev => ({ ...prev, [targetId]: { ...prev[targetId], messages: [...(prev[targetId]?.messages || []), { role: "assistant", content: reply }] } }));
+        } catch (e) {
+          setSessions(prev => ({ ...prev, [targetId]: { ...prev[targetId], messages: [...(prev[targetId]?.messages || []), { role: "assistant", content: "\u274c " + e.message }] } }));
+        } finally { setLoading(false); }
       }, 300);
     }
   }
