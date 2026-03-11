@@ -498,7 +498,17 @@ function emptyMats() { return Object.fromEntries(ALL_SUBJECT_IDS.map(id => [id, 
 const KEYS = { profile: "gcse_profile_v2" };
 
 function readJSON(key, fallback = null) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; } }
-function writeJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function writeJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch (e) {
+    console.warn("[storage] Failed to save", key, e?.name || e);
+    if (e?.name === "QuotaExceededError") {
+      // Surface a one-time warning so the user knows data isn't persisting
+      if (!writeJSON._warned) { writeJSON._warned = true; window.dispatchEvent(new CustomEvent("storage-full")); }
+    }
+    return false;
+  }
+}
 
 /* Per-student key: appends normalised student name so each child has their own data */
 let _activeStudent = "";
@@ -1441,7 +1451,7 @@ function QuickQuiz({ subject, profile, memory, topicData, onClose, onXP, onQuizC
         else throw new Error("bad");
       } catch { setErr("Couldn't generate quiz. Try again!"); setPhase("result"); }
     }).catch(e => { setErr(e.message); setPhase("result"); });
-  }, []);
+  }, [subject, profile, memory, topicData]);
 
   function answer(idx) {
     const correct = questions[qi].correct === idx;
@@ -1795,6 +1805,7 @@ export default function App() {
   const [topicData, setTopicData] = useState(loadTopicProgress);
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null); // subject for quiz builder
+  const [storageFull, setStorageFull] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -1857,6 +1868,13 @@ export default function App() {
 
   // Turn off voice/convo mode when switching to a non-voice subject
   useEffect(() => { if (!voiceCfg) { setVoiceMode(false); setConvoMode(false); } }, [voiceCfg]);
+
+  // Warn user if localStorage is full
+  useEffect(() => {
+    const handler = () => setStorageFull(true);
+    window.addEventListener("storage-full", handler);
+    return () => window.removeEventListener("storage-full", handler);
+  }, []);
 
   // Persist memory
   useEffect(() => { saveMemory(memory); }, [memory]);
@@ -2130,6 +2148,7 @@ export default function App() {
     <ErrorBoundary>
       <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
         <style>{GLOBAL_CSS}</style>
+        {storageFull && <div style={{ background: "#d32f2f", color: "#fff", padding: "8px 16px", textAlign: "center", fontSize: 13, fontWeight: 600 }}>Your device storage is full — progress may not be saved. Try clearing old sessions in Memory Manager. <button onClick={() => setStorageFull(false)} style={{ background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 4, marginLeft: 8, cursor: "pointer", fontSize: 12, padding: "2px 8px" }}>Dismiss</button></div>}
 
         {/* Modals — only one at a time */}
         {modal === "mats" && active && <MaterialsPanel subject={subject} mats={curMats} onAdd={f => setMats(prev => ({ ...prev, [active]: [...prev[active], ...f] }))} onRemove={id => setMats(prev => ({ ...prev, [active]: prev[active].filter(m => m.id !== id) }))} onClose={() => setModal(null)} />}

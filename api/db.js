@@ -116,6 +116,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Unknown action: " + action });
   } catch (e) {
     console.error("Supabase proxy error:", e);
-    return res.status(500).json({ error: "Database error: " + e.message });
+    return res.status(500).json({ error: "Database error — please try again" });
   }
 }

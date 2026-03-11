@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     return res.status(response.status).json(data);
   } catch (e) {
     console.error("Anthropic proxy error:", e);
-    return res.status(500).json({ error: { type: "proxy_error", message: "Failed to reach Anthropic: " + e.message } });
+    return res.status(500).json({ error: { type: "proxy_error", message: "Failed to reach Anthropic — please try again" } });
   }
 }
 
