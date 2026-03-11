@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
+import "./global.css";
 
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, saveProfile, loadMemory, saveMemory, getSessions, addSessionToMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
@@ -6,8 +7,9 @@ import { loadXP, saveXP, addXP, loadStreaks, saveStreaks, recordActivity } from 
 import { loadTopicProgress, saveTopicProgress, recordTopicStudy } from "./utils/topics.js";
 import { sbSave, sbLoad, mergeMemory, sbSaveSetting, sbLoadSettings } from "./utils/cloudSync.js";
 import { apiSend, apiSummary, buildSystemPrompt, buildApiMsgs } from "./utils/api.js";
-import { speakText, stopSpeaking } from "./utils/speech.js";
-import { useSpeechRecognition } from "./hooks/useSpeechRecognition.js";
+import { stopSpeaking } from "./utils/speech.js";
+import { useVoice } from "./hooks/useVoice.js";
+import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 
 /*
  * ╔══════════════════════════════════════════════════════════════════╗
@@ -16,26 +18,6 @@ import { useSpeechRecognition } from "./hooks/useSpeechRecognition.js";
  */
 
 export const APP_VERSION = "3.4.2 (10 Mar 2026, 10:00)";
-
-const GLOBAL_CSS = `
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Source Sans 3', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
-@keyframes mi { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
-@keyframes db { 0%,60%,100% { transform:translateY(0) } 30% { transform:translateY(-7px) } }
-@keyframes ci { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:none } }
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
-textarea { outline: none; }
-.btn { transition: all .2s; cursor: pointer; }
-.btn:hover { opacity: .85; }
-.card { transition: all .25s; cursor: pointer; }
-.card:hover { transform: translateY(-4px); }
-.hb:hover { transform: translateY(-2px); }
-.so:hover { transform: scale(1.03); }
-@keyframes mp { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4) } 50% { box-shadow: 0 0 0 10px rgba(220,38,38,0) } }
-`;
-
-/* Inline definitions removed — now imported from ./utils/ and ./config/ */
 
 /* Extracted components */
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
@@ -96,53 +78,13 @@ export default function App() {
   const totalMem = Object.values(memory.subjects || {}).reduce((a, s) => a + (s?.length || 0), 0);
   const voiceCfg = subject?.voice?.enabled ? subject.voice : null;
 
-  // Voice state
-  const [voiceMode, setVoiceMode] = useState(false);
-  const [convoMode, setConvoMode] = useState(false); // continuous conversation loop
-  const [speaking, setSpeaking] = useState(false);
-  const prevMsgCountRef = useRef(0);
-  const sendRef = useRef(null); // avoids stale closure in speech callback
-  const convoRef = useRef(false); // tracks convoMode without stale closure
-  convoRef.current = convoMode;
-
-  // Speech recognition hook — records audio, transcribes via Whisper
-  const { listening, transcribing, start: startMic, stop: stopMic, supported: micSupported } = useSpeechRecognition(
-    voiceCfg?.lang || "es-ES",
-    useCallback((text, isFinal) => {
-      if (text.trim()) {
-        setInput(text.trim());
-        // Auto-send after Whisper returns transcript
-        const t = text.trim();
-        setTimeout(() => { setInput(""); if (sendRef.current) sendRef.current(t); }, 400);
-      }
-    }, [])
-  );
-
-  const startMicRef = useRef(startMic);
-  startMicRef.current = startMic;
-
-  // Auto-speak new assistant messages when voice mode is on
-  useEffect(() => {
-    if (!voiceMode || !voiceCfg || !msgs.length) return;
-    if (msgs.length > prevMsgCountRef.current) {
-      const last = msgs[msgs.length - 1];
-      if (last.role === "assistant" && !last.content.startsWith("\u274c")) {
-        setSpeaking(true);
-        speakText(last.content, voiceCfg, () => {
-          setSpeaking(false);
-          // In conversation mode, auto-start recording after tutor finishes speaking
-          if (convoRef.current) setTimeout(() => startMicRef.current(), 300);
-        });
-      }
-    }
-    prevMsgCountRef.current = msgs.length;
-  }, [msgs.length, voiceMode, voiceCfg]);
-
-  // Stop speaking when leaving a subject
-  useEffect(() => { if (!active) { stopSpeaking(); setSpeaking(false); } }, [active]);
-
-  // Turn off voice/convo mode when switching to a non-voice subject
-  useEffect(() => { if (!voiceCfg) { setVoiceMode(false); setConvoMode(false); } }, [voiceCfg]);
+  // Voice — all voice state, TTS, STT, and effects in one hook
+  const sendRef = useRef(null);
+  const {
+    voiceMode, setVoiceMode, convoMode, setConvoMode,
+    speaking, setSpeaking, listening, transcribing,
+    startMic, stopMic, micSupported, startMicRef,
+  } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
   // Warn user if localStorage is full
   useEffect(() => {
@@ -334,79 +276,14 @@ export default function App() {
     } catch {} finally { setAutoSumming(false); }
   }
 
-  // Sync quiz results into tutor chat so the tutor can see student progress
-  function handleQuizComplete({ questions, answers, subjectId, quizType }) {
-    const score = answers.filter(a => a.correct).length;
-    const total = questions.length;
-    const pct = total ? Math.round(score / total * 100) : 0;
-    const subLabel = SUBJECTS[subjectId]?.label || subjectId;
-    const wrong = [];
-    const right = [];
-    questions.forEach((q, i) => {
-      const a = answers[i];
-      const qText = q.q || "Match terms to definitions";
-      if (a?.correct) {
-        right.push(qText);
-      } else {
-        let correctAns = "";
-        if (q.type === "mc" || (!q.type && q.options)) {
-          const myAns = q.options?.[a?.chosen] || "?";
-          correctAns = `I put "${myAns}" but the answer was "${q.options?.[q.correct] || "?"}"`;
-        } else if (q.type === "tf") {
-          correctAns = `I said ${a?.chosen ? "True" : "False"} but it was ${q.correct ? "True" : "False"}`;
-        } else if (q.type === "short" || q.type === "fill") {
-          correctAns = `I wrote "${a?.typed || "?"}" but the answer was "${q.answer}"`;
-        } else if (q.type === "match") {
-          correctAns = `I only matched ${a?.matchScore || 0} out of ${q.pairs?.length || 0} correctly`;
-        }
-        wrong.push(`- ${qText} — ${correctAns}`);
-      }
+  // Sync quiz results into tutor chat
+  function handleQuizComplete(result) {
+    const summary = buildQuizSummary(result);
+    injectQuizIntoChat({
+      subjectId: result.subjectId, summary, profile, memory,
+      active, sessionsRef, mats, examMode,
+      setSessions, setLoading,
     });
-
-    let summary = `Hey! I just did a ${subLabel} quiz and got ${score}/${total} (${pct}%).`;
-    if (right.length > 0) {
-      summary += `\n\nI got these right:\n${right.map(q => `- ${q}`).join("\n")}`;
-    }
-    if (wrong.length > 0) {
-      summary += `\n\nI got these wrong:\n${wrong.join("\n")}`;
-    }
-    if (wrong.length === 0) {
-      summary += "\n\nI got everything right!";
-    }
-    summary += "\n\nCan you quickly go over the questions I got wrong and then we can continue what we were doing before?";
-
-    // Inject into the matching subject's chat session
-    const targetId = subjectId;
-    setSessions(prev => {
-      const existing = prev[targetId]?.messages || [];
-      // If session doesn't exist yet, initialise with a welcome message first
-      const base = existing.length > 0 ? existing : (() => {
-        const sub = SUBJECTS[targetId];
-        const board = profile?.examBoards?.[targetId];
-        const memCount = getSessions(memory, targetId).length;
-        return sub ? [{ role: "assistant", content: sub.welcomeMessage(profile, board, memCount) }] : [];
-      })();
-      return { ...prev, [targetId]: { ...prev[targetId], messages: [...base, { role: "user", content: summary }] } };
-    });
-
-    // If this subject is currently active, auto-trigger a tutor response to the quiz summary
-    if (active === targetId) {
-      setTimeout(async () => {
-        const cur = sessionsRef.current[targetId]?.messages || [];
-        if (!cur.length) return;
-        setLoading(true);
-        const sys = buildSystemPrompt(targetId, profile, getSessions(memory, targetId), mats[targetId] || [], examMode, profile.tutorCharacters?.[targetId]);
-        const textMats = (mats[targetId] || []).filter(m => m.isText);
-        const fullSys = (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
-        const apiMsgs = buildApiMsgs(mats[targetId] || [], cur.map(m => ({ role: m.role, content: m.content })));
-        try {
-          const reply = await apiSend(fullSys, apiMsgs);
-          setSessions(prev => ({ ...prev, [targetId]: { ...prev[targetId], messages: [...(prev[targetId]?.messages || []), { role: "assistant", content: reply }] } }));
-        } catch (e) {
-          setSessions(prev => ({ ...prev, [targetId]: { ...prev[targetId], messages: [...(prev[targetId]?.messages || []), { role: "assistant", content: "\u274c " + e.message }] } }));
-        } finally { setLoading(false); }
-      }, 300);
-    }
   }
 
   const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
@@ -422,7 +299,6 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
-        <style>{GLOBAL_CSS}</style>
         {storageFull && <div style={{ background: "#d32f2f", color: "#fff", padding: "8px 16px", textAlign: "center", fontSize: 13, fontWeight: 600 }}>Your device storage is full — progress may not be saved. Try clearing old sessions in Memory Manager. <button onClick={() => setStorageFull(false)} style={{ background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 4, marginLeft: 8, cursor: "pointer", fontSize: 12, padding: "2px 8px" }}>Dismiss</button></div>}
 
         {/* Modals — only one at a time */}
