@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
-import { APP_VERSION } from "../App.jsx";
+const APP_VERSION = "3.4.2 (10 Mar 2026, 10:00)";
 
 export function SettingsModal({ profile, onSave, onClose }) {
   const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });

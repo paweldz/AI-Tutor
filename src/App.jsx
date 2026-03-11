@@ -1,25 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 import "./global.css";
 
+/* Utilities */
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, saveProfile, loadMemory, saveMemory, getSessions, addSessionToMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
-import { loadXP, saveXP, addXP, loadStreaks, saveStreaks, recordActivity } from "./utils/xp.js";
-import { loadTopicProgress, saveTopicProgress, recordTopicStudy } from "./utils/topics.js";
-import { sbSave, sbLoad, mergeMemory, sbSaveSetting, sbLoadSettings } from "./utils/cloudSync.js";
+import { loadXP, addXP, loadStreaks, recordActivity } from "./utils/xp.js";
+import { loadTopicProgress, recordTopicStudy } from "./utils/topics.js";
+import { sbSave, sbSaveSetting } from "./utils/cloudSync.js";
 import { apiSend, apiSummary, buildSystemPrompt, buildApiMsgs } from "./utils/api.js";
 import { stopSpeaking } from "./utils/speech.js";
-import { useVoice } from "./hooks/useVoice.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
+import { getQuickPrompts } from "./utils/quickPrompts.js";
 
-/*
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  GCSE TUTOR HUB v2.0                                           ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
+/* Hooks */
+import { useVoice } from "./hooks/useVoice.js";
+import { usePersistence } from "./hooks/usePersistence.js";
+import { useCloudSync } from "./hooks/useCloudSync.js";
 
-export const APP_VERSION = "3.4.2 (10 Mar 2026, 10:00)";
-
-/* Extracted components */
+/* Components */
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { Setup } from "./components/Setup.jsx";
 import { MaterialsPanel } from "./components/MaterialsPanel.jsx";
@@ -34,13 +32,7 @@ import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAIN APP
-   ═══════════════════════════════════════════════════════════════════ */
-
 migrateIfNeeded();
-
-/* Set active student from saved profile so per-student keys work on first load */
 { const p = readJSON("gcse_profile_v2"); if (p?.name) setActiveStudent(p.name); }
 
 export default function App() {
@@ -58,8 +50,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [sumLoading, setSumLoading] = useState(false);
   const [autoSumming, setAutoSumming] = useState(false);
-  const [sbSynced, setSbSynced] = useState(false);
-  const [dbConnected, setDbConnected] = useState(false);
+  // Cloud sync — one-time merge on login
+  const { dbConnected, resetSync } = useCloudSync({ profile, setProfile, setMemory, setTopicData });
   const [xpData, setXpData] = useState(loadXP);
   const [streakData, setStreakData] = useState(loadStreaks);
   const [quizSubject, setQuizSubject] = useState(null);
@@ -86,32 +78,13 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  // Warn user if localStorage is full
-  useEffect(() => {
-    const handler = () => setStorageFull(true);
-    window.addEventListener("storage-full", handler);
-    return () => window.removeEventListener("storage-full", handler);
-  }, []);
-
-  // Persist memory
-  useEffect(() => { saveMemory(memory); }, [memory]);
-
-  // Persist XP and streaks
-  useEffect(() => { saveXP(xpData); }, [xpData]);
-  useEffect(() => { saveStreaks(streakData); }, [streakData]);
-
-  // Record daily activity whenever they use the app
-  useEffect(() => {
-    if (profile) setStreakData(prev => recordActivity(prev));
-  }, [profile]);
+  // Auto-save all state to localStorage + detect storage-full
+  usePersistence({ memory, xpData, streakData, topicData, profile, setStreakData, setStorageFull });
 
   function gainXP(amount, reason) {
     setXpData(prev => addXP(prev, amount, reason));
     setStreakData(prev => recordActivity(prev));
   }
-
-  // Persist topics
-  useEffect(() => { saveTopicProgress(topicData); }, [topicData]);
 
   // Start a focused session on a specific topic
   function studyTopic(sub, topic) {
@@ -123,8 +96,6 @@ export default function App() {
     }, 800);
   }
 
-  // Save custom quiz results to memory + Supabase
-  // Save profile to both localStorage and Supabase
   function updateProfile(p) {
     saveProfile(p); // also calls setActiveStudent
     setProfile(p);
@@ -146,8 +117,7 @@ export default function App() {
     setActiveRaw(null);
     setSessions({});
     setMats(emptyMats());
-    setSbSynced(false);
-    setDbConnected(false);
+    resetSync();
     setActiveStudent("");
     setProfile(null);
     saveProfile(null);
@@ -157,44 +127,6 @@ export default function App() {
     setStreakData({ dates: [] });
     setTopicData({});
   }
-
-  // Supabase sync — load memory + profile settings from cloud
-  useEffect(() => {
-    if (profile && !sbSynced) {
-      setSbSynced(true);
-      // Load memory
-      sbLoad(profile.name).then(cloud => {
-        if (cloud) { setMemory(prev => mergeMemory(prev, cloud)); setDbConnected(true); }
-      }).catch(() => {});
-      // Load profile settings (cloud overrides local if exists)
-      sbLoadSettings(profile.name).then(settings => {
-        if (settings?.profile) {
-          const cloud = settings.profile;
-          setProfile(prev => {
-            const merged = { ...prev, ...cloud, examBoards: { ...prev.examBoards, ...cloud.examBoards }, tutorCharacters: { ...prev.tutorCharacters, ...cloud.tutorCharacters } };
-            saveProfile(merged);
-            return merged;
-          });
-          setDbConnected(true);
-        }
-        // Load topic progress from cloud
-        if (settings?.topics) {
-          setTopicData(prev => {
-            const merged = { ...prev };
-            for (const [sid, topics] of Object.entries(settings.topics)) {
-              merged[sid] = { ...merged[sid] };
-              for (const [topic, data] of Object.entries(topics)) {
-                const local = merged[sid][topic];
-                if (!local || (data.studied || 0) > (local.studied || 0)) merged[sid][topic] = data;
-              }
-            }
-            saveTopicProgress(merged);
-            return merged;
-          });
-        }
-      }).catch(() => {});
-    }
-  }, [profile, sbSynced]);
 
   // Initialise session with welcome message
   function setActive(newId) {
@@ -286,13 +218,7 @@ export default function App() {
     });
   }
 
-  const basePrompts = active && SUBJECTS[active] ? SUBJECTS[active].quickPrompts(examMode, curMats.length > 0) : [];
-  const langGreetings = { spanish: "Habl\u00e9mos en espa\u00f1ol", french: "Parlons en fran\u00e7ais", german: "Lass uns Deutsch sprechen" };
-  const langPractice = { spanish: "\u00bfPodemos practicar conversaci\u00f3n?", french: "On peut pratiquer la conversation?", german: "K\u00f6nnen wir \u00fcben?" };
-  const greet = langGreetings[active] || "Let's practise speaking";
-  const prac = langPractice[active] || "Can we practise conversation?";
-  const continuePrompt = curMem.length > 0 ? ["Pick up where we left off last session"] : [];
-  const quickPrompts = convoMode ? [greet, prac, "Correct my pronunciation"] : voiceMode ? [greet, "Correct my pronunciation", ...basePrompts] : [...continuePrompt, ...basePrompts];
+  const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
 
   if (!profile) return <Setup onDone={updateProfile} />;
 
