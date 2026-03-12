@@ -1,25 +1,16 @@
 import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
-import { sbLoadSettings } from "../utils/cloudSync.js";
 
 export function Setup({ onDone }) {
-  const [phase, setPhase] = useState("name"); // "name" | "checking" | "year" | "tier" | "subjects" | "boards"
+  const [phase, setPhase] = useState("name");
   const [p, setP] = useState({ name: "", year: "", tier: "", examBoards: {}, subjects: [], tutorCharacters: {} });
   const [boardIdx, setBoardIdx] = useState(0);
   const upd = (f, v) => setP(x => ({ ...x, [f]: v }));
   const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(s => s !== id) : [...x.subjects, id] }));
 
-  async function afterName() {
+  function afterName() {
     const name = p.name.trim();
     if (!name) return;
-    setPhase("checking");
-    try {
-      const settings = await sbLoadSettings(name);
-      if (settings?.profile && settings.profile.year) {
-        onDone({ ...settings.profile, name });
-        return;
-      }
-    } catch {}
     setPhase("year");
   }
 
@@ -41,15 +32,15 @@ export function Setup({ onDone }) {
     </div>
   );
 
-  if (phase === "name" || phase === "checking") return wrap(<>
+  if (phase === "name") return wrap(<>
     <div style={{ fontSize: 11, color: "#f0c040", letterSpacing: "0.1em", marginBottom: 6 }}>WELCOME</div>
     <h2 style={{ fontSize: 28, color: "#fff", fontFamily: "'Playfair Display',serif", marginBottom: 8 }}>What's your name?</h2>
     <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 28 }}>Your tutors will use this throughout your sessions</p>
-    <input autoFocus value={p.name} onChange={e => upd("name", e.target.value)} onKeyDown={e => e.key === "Enter" && afterName()} placeholder="Enter your first name..." disabled={phase === "checking"}
+    <input autoFocus value={p.name} onChange={e => upd("name", e.target.value)} onKeyDown={e => e.key === "Enter" && afterName()} placeholder="Enter your first name..."
       style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: 18, outline: "none", marginBottom: 20 }} />
-    <button className="hb" onClick={afterName} disabled={!p.name.trim() || phase === "checking"}
-      style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.name.trim() && phase !== "checking" ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.name.trim() ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-      {phase === "checking" ? "Checking..." : "Continue \u2192"}
+    <button className="hb" onClick={afterName} disabled={!p.name.trim()}
+      style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", background: p.name.trim() ? "#f0c040" : "rgba(255,255,255,0.1)", color: p.name.trim() ? "#1a1a2e" : "rgba(255,255,255,0.3)", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+      Continue {"\u2192"}
     </button>
   </>);
 
@@ -110,4 +101,3 @@ export function Setup({ onDone }) {
 
   return null;
 }
-

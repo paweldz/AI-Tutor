@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { saveProfile } from "../utils/storage.js";
-import { sbLoad, mergeMemory, sbLoadSettings } from "../utils/cloudSync.js";
+import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks } from "../utils/cloudSync.js";
 import { saveTopicProgress } from "../utils/topics.js";
+import { saveXP, saveStreaks } from "../utils/xp.js";
 
 /**
- * Handles one-time Supabase sync on login: loads memory, profile settings,
- * and topic progress from the cloud and merges with local data.
+ * Handles one-time Supabase sync on login: loads memory, profile, topics,
+ * XP, and streaks from the cloud (primary) and merges with local cache.
  */
-export function useCloudSync({ profile, setProfile, setMemory, setTopicData }) {
+export function useCloudSync({ profile, setProfile, setMemory, setTopicData, setXpData, setStreakData }) {
   const sbSyncedRef = useRef(false);
   const [dbConnected, setDbConnected] = useState(false);
 
@@ -15,13 +16,13 @@ export function useCloudSync({ profile, setProfile, setMemory, setTopicData }) {
     if (!profile || sbSyncedRef.current) return;
     sbSyncedRef.current = true;
 
-    // Load memory
-    sbLoad(profile.name).then(cloud => {
+    // Load memory (Supabase-first, merge with local)
+    sbLoad().then(cloud => {
       if (cloud) { setMemory(prev => mergeMemory(prev, cloud)); setDbConnected(true); }
     }).catch(() => {});
 
-    // Load profile settings (cloud overrides local if exists)
-    sbLoadSettings(profile.name).then(settings => {
+    // Load profile settings + topics (cloud overrides local)
+    sbLoadSettings().then(settings => {
       if (settings?.profile) {
         const cloud = settings.profile;
         setProfile(prev => {
@@ -31,7 +32,6 @@ export function useCloudSync({ profile, setProfile, setMemory, setTopicData }) {
         });
         setDbConnected(true);
       }
-      // Load topic progress from cloud
       if (settings?.topics) {
         setTopicData(prev => {
           const merged = { ...prev };
@@ -47,7 +47,31 @@ export function useCloudSync({ profile, setProfile, setMemory, setTopicData }) {
         });
       }
     }).catch(() => {});
-  }, [profile, setProfile, setMemory, setTopicData]);
+
+    // Load XP from cloud (cloud wins if higher)
+    sbLoadXP().then(cloudXP => {
+      if (cloudXP) {
+        setXpData(prev => {
+          const best = cloudXP.total >= prev.total ? cloudXP : prev;
+          saveXP(best);
+          return best;
+        });
+        setDbConnected(true);
+      }
+    }).catch(() => {});
+
+    // Load streaks from cloud (merge dates)
+    sbLoadStreaks().then(cloudStreaks => {
+      if (cloudStreaks) {
+        setStreakData(prev => {
+          const merged = { dates: [...new Set([...prev.dates, ...cloudStreaks.dates])].sort() };
+          saveStreaks(merged);
+          return merged;
+        });
+        setDbConnected(true);
+      }
+    }).catch(() => {});
+  }, [profile, setProfile, setMemory, setTopicData, setXpData, setStreakData]);
 
   function resetSync() {
     sbSyncedRef.current = false;

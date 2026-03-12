@@ -8,6 +8,7 @@ import { loadTopicProgress } from "./utils/topics.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 
+import { useAuth } from "./hooks/useAuth.js";
 import { useVoice } from "./hooks/useVoice.js";
 import { usePersistence } from "./hooks/usePersistence.js";
 import { useCloudSync } from "./hooks/useCloudSync.js";
@@ -15,6 +16,7 @@ import { useChat } from "./hooks/useChat.js";
 import { useSessionManager } from "./hooks/useSessionManager.js";
 
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
+import { AuthScreen } from "./components/AuthScreen.jsx";
 import { Setup } from "./components/Setup.jsx";
 import { HomeScreen } from "./components/HomeScreen.jsx";
 import { ChatView } from "./components/ChatView.jsx";
@@ -25,6 +27,7 @@ migrateIfNeeded();
 { const p = readJSON("gcse_profile_v2"); if (p?.name) setActiveStudent(p.name); }
 
 export default function App() {
+  const { user, loading: authLoading, signIn, signUp, signOut, resetPassword, authEnabled } = useAuth();
   const [profile, setProfile] = useState(loadProfile);
   const [memory, setMemory] = useState(loadMemory);
   const [sessions, setSessions] = useState({});
@@ -57,7 +60,7 @@ export default function App() {
     setStreakData(prev => recordActivity(prev));
   }
 
-  const { dbConnected, resetSync } = useCloudSync({ profile, setProfile, setMemory, setTopicData });
+  const { dbConnected, resetSync } = useCloudSync({ profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,
@@ -77,7 +80,7 @@ export default function App() {
   const { setActive, updateProfile, switchUser, studyTopic } = useSessionManager({
     active, sessions, msgs, curMats, profile, memory, autoSumming,
     setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-    setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef,
+    setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef, signOut,
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sessions, loading]);
@@ -98,6 +101,14 @@ export default function App() {
   }
 
   const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
+
+  // Auth gate: require login when Supabase is configured
+  if (authEnabled && authLoading) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading...</div>
+    </div>
+  );
+  if (authEnabled && !user) return <AuthScreen onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} />;
 
   if (!profile) return <Setup onDone={updateProfile} />;
 

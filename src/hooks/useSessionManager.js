@@ -13,7 +13,7 @@ import { stopSpeaking } from "../utils/speech.js";
 export function useSessionManager({
   active, sessions, msgs, curMats, profile, memory, autoSumming,
   setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-  setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef,
+  setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef, signOut,
 }) {
   function setActive(newId) {
     if (active && msgs.length >= 6 && !autoSumming) autoSave(active, msgs, curMats);
@@ -35,7 +35,7 @@ export function useSessionManager({
       setXpData(loadXP());
       setStreakData(loadStreaks());
       setTopicData(loadTopicProgress());
-      sbSaveSetting(p.name, "profile", p);
+      sbSaveSetting("profile", p);
     }
     setModal(null);
   }
@@ -54,6 +54,7 @@ export function useSessionManager({
     setXpData({ total: 0, history: [] });
     setStreakData({ dates: [] });
     setTopicData({});
+    if (signOut) signOut();
   }
 
   function studyTopic(sub, topic) {

@@ -1,30 +1,40 @@
 /* ═══════════════════════════════════════════════════════════════════
-   SUPABASE — cloud backup via /api/db proxy (keys in Vercel env vars)
+   SUPABASE — direct client with RLS (user_id auto-set via auth.uid())
+   Falls back to /api/db proxy when supabase client is not configured.
    ═══════════════════════════════════════════════════════════════════ */
 
+import { supabase } from "../lib/supabase.js";
+
 export async function sbTest() {
+  if (!supabase) return false;
   try {
-    const r = await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "test" }) });
-    const d = await r.json();
-    return d.ok === true;
+    const { error } = await supabase.from("tutor_memory").select("id").limit(1);
+    return !error;
   } catch { return false; }
 }
 
-export async function sbSave(studentName, subject, date, summary) {
+export async function sbSave(subject, date, summary) {
+  if (!supabase) return false;
   try {
-    const r = await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save", studentName, subject, date, summary: typeof summary === "string" ? summary : JSON.stringify(summary) }) });
-    const d = await r.json();
-    return d.ok === true;
+    const { error } = await supabase.from("tutor_memory").insert({
+      subject,
+      session_date: date,
+      summary: typeof summary === "string" ? summary : JSON.stringify(summary),
+    });
+    return !error;
   } catch { return false; }
 }
 
-export async function sbLoad(studentName) {
+export async function sbLoad() {
+  if (!supabase) return null;
   try {
-    const r = await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "load", studentName }) });
-    const d = await r.json();
-    if (!d.ok || !d.rows?.length) return null;
+    const { data, error } = await supabase
+      .from("tutor_memory")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error || !data?.length) return null;
     const subjects = {};
-    for (const row of d.rows) {
+    for (const row of data) {
       if (!subjects[row.subject]) subjects[row.subject] = [];
       let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
       subjects[row.subject].push(parsed?.rawSummaryText ? parsed : { date: row.session_date, rawSummaryText: row.summary, topics: [], strengths: [], weaknesses: [], confidenceScores: {}, messageCount: 0, examQuestionsAttempted: 0 });
@@ -44,14 +54,73 @@ export function mergeMemory(local, cloud) {
   return merged;
 }
 
-export async function sbSaveSetting(studentName, key, value) {
-  try { await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "save_settings", studentName, key, value }) }); } catch {}
+export async function sbSaveSetting(key, value) {
+  if (!supabase) return;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("tutor_settings").upsert(
+      { user_id: user.id, key, value: typeof value === "string" ? value : JSON.stringify(value) },
+      { onConflict: "user_id,key" }
+    );
+  } catch {}
 }
 
-export async function sbLoadSettings(studentName) {
+export async function sbLoadSettings() {
+  if (!supabase) return null;
   try {
-    const r = await fetch("/api/db", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "load_settings", studentName }) });
-    const d = await r.json();
-    return d.ok ? d.settings : null;
+    const { data, error } = await supabase.from("tutor_settings").select("*");
+    if (error || !data) return null;
+    const settings = {};
+    for (const row of data) {
+      try { settings[row.key] = JSON.parse(row.value); } catch { settings[row.key] = row.value; }
+    }
+    return settings;
   } catch { return null; }
+}
+
+/* ── XP sync ─────────────────────────────────────────────────────── */
+
+export async function sbLoadXP() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("tutor_xp").select("*").maybeSingle();
+    if (error || !data) return null;
+    return { total: data.total, history: data.history || [] };
+  } catch { return null; }
+}
+
+export async function sbSaveXP(xpData) {
+  if (!supabase) return;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("tutor_xp").upsert(
+      { user_id: user.id, total: xpData.total, history: xpData.history },
+      { onConflict: "user_id" }
+    );
+  } catch {}
+}
+
+/* ── Streaks sync ────────────────────────────────────────────────── */
+
+export async function sbLoadStreaks() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("tutor_streaks").select("*").maybeSingle();
+    if (error || !data) return null;
+    return { dates: data.dates || [] };
+  } catch { return null; }
+}
+
+export async function sbSaveStreaks(streakData) {
+  if (!supabase) return;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("tutor_streaks").upsert(
+      { user_id: user.id, dates: streakData.dates },
+      { onConflict: "user_id" }
+    );
+  } catch {}
 }

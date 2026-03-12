@@ -56,7 +56,7 @@ export function useChat({
       const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active]);
       const data = await apiSummary(sys, msgs);
       setMemory(prev => addSessionToMem(prev, active, data));
-      if (profile) sbSave(profile.name, active, data.date, JSON.stringify(data));
+      sbSave(active, data.date, JSON.stringify(data));
       gainXP(25, "Session summary");
       if (data.confidenceScores) {
         setTopicData(prev => {
@@ -64,7 +64,7 @@ export function useChat({
           for (const [topic, conf] of Object.entries(data.confidenceScores)) {
             updated = recordTopicStudy(updated, active, topic, conf);
           }
-          if (profile) sbSaveSetting(profile.name, "topics", updated);
+          sbSaveSetting("topics", updated);
           return updated;
         });
       }
@@ -79,7 +79,7 @@ export function useChat({
       const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid]);
       const data = await apiSummary(sys, chatMsgs);
       setMemory(prev => addSessionToMem(prev, sid, data));
-      if (profile) sbSave(profile.name, sid, data.date, JSON.stringify(data));
+      sbSave(sid, data.date, JSON.stringify(data));
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }
 
