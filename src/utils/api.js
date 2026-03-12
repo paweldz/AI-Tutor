@@ -9,35 +9,66 @@ export const MODEL = "claude-sonnet-4-5-20250929";
 export const SUMMARY_PROMPT = `You are writing a session summary. Return ONLY valid JSON (no markdown, no backticks, no extra text). Exact shape:
 {"date":"today DD Month YYYY","subject":"subject id","topics":["t1","t2"],"strengths":["s1"],"weaknesses":["w1"],"confidenceScores":{"topic1":70,"topic2":50},"messageCount":12,"examQuestionsAttempted":0,"rawSummaryText":"3-4 paragraph summary covering: topics, strengths, areas needing work, confidence levels, 3 priorities for next session."}`;
 
-export async function apiSend(systemPrompt, messages, maxTokens = 1200) {
+export async function apiSend(systemPrompt, messages, maxTokens = 1200, { tools, onToolUse } = {}) {
   const MAX_RETRIES = 4;
-  const body = JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages });
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    let raw = "", status = 0;
-    try {
-      const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body });
-      status = r.status; raw = await r.text();
-    } catch (e) {
-      if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue; }
-      throw new Error("Network error: " + e.message + ". Check your internet connection.");
+  const MAX_TOOL_ROUNDS = 5;
+  let currentMessages = [...messages];
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    const payload = { model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages: currentMessages };
+    if (tools?.length) payload.tools = tools;
+    const body = JSON.stringify(payload);
+
+    let data;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      let raw = "", status = 0;
+      try {
+        const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+        status = r.status; raw = await r.text();
+      } catch (e) {
+        if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue; }
+        throw new Error("Network error: " + e.message + ". Check your internet connection.");
+      }
+
+      if ((status === 429 || status === 529) && attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, (attempt + 1) * 2500));
+        continue;
+      }
+
+      try { data = JSON.parse(raw); } catch { throw new Error("HTTP " + status + " \u2014 invalid response from API."); }
+      if (data.error) {
+        const msg = data.error.message || data.error.type || "Unknown";
+        if (status === 401) throw new Error("API key issue \u2014 check ANTHROPIC_API_KEY in Vercel settings.");
+        if (status === 429) throw new Error("Busy \u2014 please try again in a moment.");
+        if (status === 529) throw new Error("Busy \u2014 please try again in a moment.");
+        throw new Error("API error (" + status + "): " + msg);
+      }
+      if (!data.content) throw new Error("Unexpected response (" + status + ").");
+      break;
     }
 
-    if ((status === 429 || status === 529) && attempt < MAX_RETRIES) {
-      await new Promise(r => setTimeout(r, (attempt + 1) * 2500));
-      continue;
+    // Check if response contains tool_use blocks
+    const toolUses = (data.content || []).filter(b => b.type === "tool_use");
+    if (!toolUses.length || !onToolUse || data.stop_reason !== "tool_use") {
+      return (data.content || []).map(b => b.text || "").join("");
     }
 
-    let data; try { data = JSON.parse(raw); } catch { throw new Error("HTTP " + status + " \u2014 invalid response from API."); }
-    if (data.error) {
-      const msg = data.error.message || data.error.type || "Unknown";
-      if (status === 401) throw new Error("API key issue \u2014 check ANTHROPIC_API_KEY in Vercel settings.");
-      if (status === 429) throw new Error("Busy \u2014 please try again in a moment.");
-      if (status === 529) throw new Error("Busy \u2014 please try again in a moment.");
-      throw new Error("API error (" + status + "): " + msg);
-    }
-    if (!data.content) throw new Error("Unexpected response (" + status + ").");
-    return data.content.map(b => b.text || "").join("");
+    // Execute tools and continue the conversation
+    const toolResults = toolUses.map(tu => ({
+      type: "tool_result",
+      tool_use_id: tu.id,
+      content: onToolUse(tu.name, tu.input),
+    }));
+
+    currentMessages = [
+      ...currentMessages,
+      { role: "assistant", content: data.content },
+      { role: "user", content: toolResults },
+    ];
   }
+
+  // Shouldn't reach here, but return last text if we do
+  return "";
 }
 
 export async function apiSummary(systemPrompt, chatMessages) {

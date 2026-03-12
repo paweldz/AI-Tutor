@@ -17,12 +17,20 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured in Vercel environment variables" });
   }
 
-  const { model, max_tokens, system, messages } = req.body || {};
+  const { model, max_tokens, system, messages, tools } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Missing 'messages' in request body" });
   }
 
   try {
+    const payload = {
+      model: model || "claude-sonnet-4-5-20250929",
+      max_tokens: max_tokens || 1200,
+      system: system || "",
+      messages,
+    };
+    if (tools?.length) payload.tools = tools;
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -30,12 +38,7 @@ export default async function handler(req, res) {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: model || "claude-sonnet-4-5-20250929",
-        max_tokens: max_tokens || 1200,
-        system: system || "",
-        messages,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const text = await response.text();

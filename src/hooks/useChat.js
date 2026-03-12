@@ -4,6 +4,7 @@ import { getSessions, addSessionToMem } from "../utils/storage.js";
 import { sbSave, sbSaveSetting } from "../utils/cloudSync.js";
 import { apiSend, apiSummary, buildSystemPrompt, buildApiMsgs } from "../utils/api.js";
 import { recordTopicStudy } from "../utils/topics.js";
+import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
 
 /**
  * Manages the send-message, generate-summary, and auto-save flows.
@@ -40,8 +41,10 @@ export function useChat({
     const textMats = curMats.filter(m => m.isText);
     const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
+    const toolCtx = { memory, profile, active };
+    const onToolUse = (name, input) => executeTool(name, input, toolCtx);
     try {
-      const reply = await apiSend(fullSys, apiMsgs);
+      const reply = await apiSend(fullSys, apiMsgs, 1200, { tools: TUTOR_TOOLS, onToolUse });
       setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: [...updated, { role: "assistant", content: reply }] } }));
       gainXP(5, "Sent message");
     } catch (e) {
