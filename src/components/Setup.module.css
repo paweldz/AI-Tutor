@@ -1,0 +1,227 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 540px;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 40px 36px;
+}
+
+.tag {
+  font-size: 11px;
+  color: #f0c040;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+
+.heading {
+  font-size: 28px;
+  color: #fff;
+  font-family: 'Playfair Display', serif;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+.subtitleShort {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.nameInput {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  outline: none;
+  margin-bottom: 20px;
+}
+
+.optionRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.option {
+  flex: 1;
+  padding: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 15px;
+}
+
+.optionOff {
+  composes: option;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+}
+
+.optionOn {
+  composes: option;
+  border: 2px solid #f0c040;
+  background: rgba(240, 192, 64, 0.15);
+  color: #f0c040;
+  font-weight: 700;
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btnActive {
+  composes: btn;
+  background: #f0c040;
+  color: #1a1a2e;
+}
+
+.btnDisabled {
+  composes: btn;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.subjectGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.subjectOff {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s;
+}
+
+.subjectOn {
+  composes: subjectOff;
+  border-color: #f0c040;
+  background: rgba(240, 192, 64, 0.15);
+}
+
+.subjectEmoji {
+  font-size: 22px;
+}
+
+.subjectLabel {
+  font-weight: 400;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.subjectLabelOn {
+  composes: subjectLabel;
+  color: #f0c040;
+  font-weight: 700;
+}
+
+.subjectTutor {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 10px;
+}
+
+.checkmark {
+  margin-left: auto;
+  color: #f0c040;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.countText {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 12px;
+}
+
+.boardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.boardOff {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+}
+
+.boardOn {
+  composes: boardOff;
+  border-color: #f0c040;
+  background: rgba(240, 192, 64, 0.15);
+  color: #f0c040;
+  font-weight: 700;
+}
+
+.boardBtnRow {
+  display: flex;
+  gap: 8px;
+}
+
+.skipBtn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nextBtn {
+  flex: 2;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: #f0c040;
+  color: #1a1a2e;
+  font-weight: 700;
+  cursor: pointer;
+}
