@@ -70,7 +70,7 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  usePersistence({ memory, xpData, streakData, topicData, profile, setStreakData, setStorageFull });
+  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, profile, setStreakData, setStorageFull });
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef } = useChat({
     active, profile, memory, sessions, setSessions, mats,
@@ -81,8 +81,9 @@ export default function App() {
 
   const { setActive, updateProfile, switchUser, studyTopic } = useSessionManager({
     active, sessions, msgs, curMats, profile, memory, autoSumming,
+    xpData, streakData, topicData,
     setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-    setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef, signOut,
+    setXpData, setStreakData, setTopicData, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sessions, loading]);

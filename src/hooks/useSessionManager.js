@@ -2,7 +2,7 @@ import { SUBJECTS, emptyMats } from "../config/subjects.js";
 import { setActiveStudent, saveProfile, loadMemory, getSessions } from "../utils/storage.js";
 import { loadXP, loadStreaks } from "../utils/xp.js";
 import { loadTopicProgress, recordTopicStudy } from "../utils/topics.js";
-import { sbSaveSetting } from "../utils/cloudSync.js";
+import { sbSaveSetting, sbSaveXP, sbSaveStreaks } from "../utils/cloudSync.js";
 import { stopSpeaking } from "../utils/speech.js";
 
 /**
@@ -11,8 +11,9 @@ import { stopSpeaking } from "../utils/speech.js";
  */
 export function useSessionManager({
   active, sessions, msgs, curMats, profile, memory, autoSumming,
+  xpData, streakData, topicData,
   setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-  setXpData, setStreakData, setTopicData, setModal, resetSync, autoSave, sendRef, signOut,
+  setXpData, setStreakData, setTopicData, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
 }) {
   function setActive(newId) {
     if (active && msgs.length >= 6 && !autoSumming) autoSave(active, msgs, curMats);
@@ -48,12 +49,28 @@ export function useSessionManager({
   }
 
   function switchUser() {
+    // Save current session if substantial
     if (active && msgs.length >= 6) autoSave(active, msgs, curMats);
     stopSpeaking();
+
+    // ── Flush pending data to cloud BEFORE signing out ──
+    // Debounced saves (2s delay) may not have fired yet — force them now
+    // so no recent changes are lost when the auth session is destroyed.
+    if (profile) sbSaveSetting("profile", profile);
+    if (xpData && (xpData.total > 0 || xpData.history?.length > 0)) sbSaveXP(xpData);
+    if (streakData?.dates?.length > 0) sbSaveStreaks(streakData);
+    if (topicData && Object.keys(topicData).length > 0) sbSaveSetting("topics", topicData);
+
+    // Cancel debounced cloud saves so the state-clearing below doesn't
+    // schedule empty-data overwrites via usePersistence effects.
+    if (cancelPendingSaves) cancelPendingSaves();
+
+    // Clear UI state
     setActiveRaw(null);
     setSessions({});
     setMats(emptyMats());
-    resetSync();
+
+    // Clear local profile state (but keep localStorage data keyed by student)
     setActiveStudent("");
     setProfile(null);
     saveProfile(null);
@@ -61,6 +78,11 @@ export function useSessionManager({
     setXpData({ total: 0, history: [] });
     setStreakData({ dates: [] });
     setTopicData({});
+
+    // Reset cloud sync so it re-triggers on next login
+    resetSync();
+
+    // Sign out of Supabase — user must re-authenticate
     if (signOut) signOut();
   }
 
