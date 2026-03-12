@@ -3,6 +3,7 @@ import { saveProfile, setActiveStudent, saveMemory } from "../utils/storage.js";
 import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks } from "../utils/cloudSync.js";
 import { saveTopicProgress } from "../utils/topics.js";
 import { saveXP, saveStreaks } from "../utils/xp.js";
+import { supabase } from "../lib/supabase.js";
 
 /**
  * Handles one-time Supabase sync on login: loads memory, profile, topics,
@@ -29,9 +30,22 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
 
     async function runSync() {
       try {
+        // ── Diagnostic: log sync state ──
+        console.log("[cloudSync] ▶ Starting sync", {
+          supabaseConfigured: !!supabase,
+          userId: user?.id || "none",
+          hasLocalProfile: !!profile,
+        });
+
         // ── Phase 1: Load profile FIRST so setActiveStudent is called ──
         // This ensures all subsequent localStorage writes use the correct key.
-        const settings = await sbLoadSettings().catch(() => null);
+        const settings = await sbLoadSettings().catch(e => { console.warn("[cloudSync] sbLoadSettings threw:", e); return null; });
+        console.log("[cloudSync] Settings loaded:", {
+          hasSettings: !!settings,
+          keys: settings ? Object.keys(settings) : [],
+          hasProfile: !!settings?.profile,
+          hasTopics: !!settings?.topics,
+        });
         if (settings?.profile) {
           const cloud = settings.profile;
           setProfile(prev => {
@@ -61,10 +75,18 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
         // ── Phase 2: Load memory, XP, streaks in parallel ──
         // Now that setActiveStudent has been called, storage keys are correct.
         const [cloud, cloudXP, cloudStreaks] = await Promise.all([
-          sbLoad().catch(() => null),
-          sbLoadXP().catch(() => null),
-          sbLoadStreaks().catch(() => null),
+          sbLoad().catch(e => { console.warn("[cloudSync] sbLoad threw:", e); return null; }),
+          sbLoadXP().catch(e => { console.warn("[cloudSync] sbLoadXP threw:", e); return null; }),
+          sbLoadStreaks().catch(e => { console.warn("[cloudSync] sbLoadStreaks threw:", e); return null; }),
         ]);
+        console.log("[cloudSync] Phase 2 loaded:", {
+          hasMemory: !!cloud,
+          memorySubjects: cloud ? Object.keys(cloud.subjects || {}) : [],
+          hasXP: !!cloudXP,
+          xpTotal: cloudXP?.total ?? "n/a",
+          hasStreaks: !!cloudStreaks,
+          streakCount: cloudStreaks?.dates?.length ?? 0,
+        });
 
         if (cloud) {
           setMemory(prev => {
@@ -93,8 +115,9 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
           setDbConnected(true);
         }
       } catch (e) {
-        console.warn("[cloudSync] sync failed:", e);
+        console.error("[cloudSync] ✖ sync failed:", e);
       } finally {
+        console.log("[cloudSync] ■ Sync complete — dbConnected:", dbConnected);
         setSyncing(false);
       }
     }

@@ -46,10 +46,11 @@ ALTER TABLE tutor_xp       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tutor_streaks  ENABLE ROW LEVEL SECURITY;
 
 -- Each user can only CRUD their own rows
-CREATE POLICY "users_own_memory"   ON tutor_memory   FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_settings" ON tutor_settings FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_xp"      ON tutor_xp       FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_streaks"  ON tutor_streaks  FOR ALL USING (auth.uid() = user_id);
+-- WITH CHECK is explicit for INSERT/UPDATE safety
+CREATE POLICY "users_own_memory"   ON tutor_memory   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_settings" ON tutor_settings FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_xp"      ON tutor_xp       FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_streaks"  ON tutor_streaks  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- ── Indexes ─────────────────────────────────────────────────────────
 
