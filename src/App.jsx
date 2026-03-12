@@ -62,7 +62,7 @@ export default function App() {
     setStreakData(prev => recordActivity(prev));
   }
 
-  const { dbConnected, resetSync } = useCloudSync({ profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
+  const { dbConnected, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,

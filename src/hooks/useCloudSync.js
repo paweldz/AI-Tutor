@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { saveProfile } from "../utils/storage.js";
+import { saveProfile, setActiveStudent } from "../utils/storage.js";
 import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks } from "../utils/cloudSync.js";
 import { saveTopicProgress } from "../utils/topics.js";
 import { saveXP, saveStreaks } from "../utils/xp.js";
@@ -7,13 +7,20 @@ import { saveXP, saveStreaks } from "../utils/xp.js";
 /**
  * Handles one-time Supabase sync on login: loads memory, profile, topics,
  * XP, and streaks from the cloud (primary) and merges with local cache.
+ *
+ * Triggers on `user` (auth state) so that even when localStorage is empty
+ * (new device, cleared cache, redeploy), the cloud profile is restored
+ * automatically — no need to re-create from scratch.
  */
-export function useCloudSync({ profile, setProfile, setMemory, setTopicData, setXpData, setStreakData }) {
+export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData }) {
   const sbSyncedRef = useRef(false);
   const [dbConnected, setDbConnected] = useState(false);
 
   useEffect(() => {
-    if (!profile || sbSyncedRef.current) return;
+    // Sync once per authenticated session (user present), OR once when
+    // profile is loaded locally but no auth is configured.
+    const trigger = user || profile;
+    if (!trigger || sbSyncedRef.current) return;
     sbSyncedRef.current = true;
 
     // Load memory (Supabase-first, merge with local)
@@ -26,8 +33,10 @@ export function useCloudSync({ profile, setProfile, setMemory, setTopicData, set
       if (settings?.profile) {
         const cloud = settings.profile;
         setProfile(prev => {
-          const merged = { ...prev, ...cloud, examBoards: { ...prev.examBoards, ...cloud.examBoards }, tutorCharacters: { ...prev.tutorCharacters, ...cloud.tutorCharacters } };
+          const base = prev || {};
+          const merged = { ...base, ...cloud, examBoards: { ...base.examBoards, ...cloud.examBoards }, tutorCharacters: { ...base.tutorCharacters, ...cloud.tutorCharacters } };
           saveProfile(merged);
+          if (merged.name) setActiveStudent(merged.name);
           return merged;
         });
         setDbConnected(true);
@@ -71,7 +80,7 @@ export function useCloudSync({ profile, setProfile, setMemory, setTopicData, set
         setDbConnected(true);
       }
     }).catch(() => {});
-  }, [profile, setProfile, setMemory, setTopicData, setXpData, setStreakData]);
+  }, [user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData]);
 
   function resetSync() {
     sbSyncedRef.current = false;
