@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
 import "./global.css";
 
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
@@ -22,6 +23,7 @@ import { HomeScreen } from "./components/HomeScreen.jsx";
 import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 import { StorageFullBanner, ModalLayer } from "./components/ModalLayer.jsx";
+import { DashboardPage } from "./components/DashboardPage.jsx";
 
 migrateIfNeeded();
 { const p = readJSON("gcse_profile_v2"); if (p?.name) setActiveStudent(p.name); }
@@ -112,53 +114,60 @@ export default function App() {
 
   if (!profile) return <Setup onDone={updateProfile} />;
 
+  const mainView = (
+    <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
+      {storageFull && <StorageFullBanner onDismiss={() => setStorageFull(false)} />}
+
+      <ModalLayer
+        modal={modal} setModal={setModal} active={active} subject={subject}
+        showSum={showSum} setShowSum={setShowSum}
+        quizSubject={quizSubject} setQuizSubject={setQuizSubject}
+        topicsFor={topicsFor} setTopicsFor={setTopicsFor}
+        buildQuizFor={buildQuizFor} setBuildQuizFor={setBuildQuizFor}
+        memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile}
+        topicData={topicData} mats={mats} setMats={setMats} curMats={curMats}
+        updateProfile={updateProfile} studyTopic={studyTopic}
+        gainXP={gainXP} onQuizComplete={handleQuizComplete}
+        clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
+      />
+
+      <Header
+        profile={profile} active={active} subject={subject} curMats={curMats}
+        examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
+        msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
+        dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
+        setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
+        setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
+        genSummary={handleGenSummary} setActive={setActive} switchUser={switchUser}
+        startMicRef={startMicRef} stopMic={stopMic}
+      />
+
+      {!active ? (
+        <HomeScreen
+          profile={profile} memory={memory} mats={mats} xpData={xpData}
+          streakData={streakData} topicData={topicData} totalMem={totalMem}
+          onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
+          onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
+        />
+      ) : (
+        <ChatView
+          subject={subject} msgs={msgs} loading={loading} input={input} setInput={setInput}
+          onSend={send} examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
+          speaking={speaking} setSpeaking={setSpeaking} listening={listening}
+          transcribing={transcribing} quickPrompts={quickPrompts} voiceCfg={voiceCfg}
+          micSupported={micSupported} startMic={startMic} stopMic={stopMic}
+          bottomRef={bottomRef} inputRef={inputRef}
+        />
+      )}
+    </div>
+  );
+
   return (
     <ErrorBoundary>
-      <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
-        {storageFull && <StorageFullBanner onDismiss={() => setStorageFull(false)} />}
-
-        <ModalLayer
-          modal={modal} setModal={setModal} active={active} subject={subject}
-          showSum={showSum} setShowSum={setShowSum}
-          quizSubject={quizSubject} setQuizSubject={setQuizSubject}
-          topicsFor={topicsFor} setTopicsFor={setTopicsFor}
-          buildQuizFor={buildQuizFor} setBuildQuizFor={setBuildQuizFor}
-          memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile}
-          topicData={topicData} mats={mats} setMats={setMats} curMats={curMats}
-          updateProfile={updateProfile} studyTopic={studyTopic}
-          gainXP={gainXP} onQuizComplete={handleQuizComplete}
-          clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
-        />
-
-        <Header
-          profile={profile} active={active} subject={subject} curMats={curMats}
-          examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
-          msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
-          dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
-          setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
-          setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
-          genSummary={handleGenSummary} setActive={setActive} switchUser={switchUser}
-          startMicRef={startMicRef} stopMic={stopMic}
-        />
-
-        {!active ? (
-          <HomeScreen
-            profile={profile} memory={memory} mats={mats} xpData={xpData}
-            streakData={streakData} topicData={topicData} totalMem={totalMem}
-            onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
-            onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
-          />
-        ) : (
-          <ChatView
-            subject={subject} msgs={msgs} loading={loading} input={input} setInput={setInput}
-            onSend={send} examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
-            speaking={speaking} setSpeaking={setSpeaking} listening={listening}
-            transcribing={transcribing} quickPrompts={quickPrompts} voiceCfg={voiceCfg}
-            micSupported={micSupported} startMic={startMic} stopMic={stopMic}
-            bottomRef={bottomRef} inputRef={inputRef}
-          />
-        )}
-      </div>
+      <Routes>
+        <Route path="/dashboard" element={<DashboardPage memory={memory} mats={mats} profile={profile} xpData={xpData} streakData={streakData} />} />
+        <Route path="*" element={mainView} />
+      </Routes>
     </ErrorBoundary>
   );
 }
