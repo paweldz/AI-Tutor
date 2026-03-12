@@ -27,13 +27,21 @@ export function useSessionManager({
   }
 
   function updateProfile(p) {
+    const nameChanged = p?.name && p.name !== profile?.name;
     saveProfile(p);
     setProfile(p);
     if (p?.name) {
-      setMemory(loadMemory());
-      setXpData(loadXP());
-      setStreakData(loadStreaks());
-      setTopicData(loadTopicProgress());
+      setActiveStudent(p.name);
+      // Only reload from localStorage when the student name actually changed
+      // (e.g. switching users in settings). When coming from Setup after a
+      // cloud restore, the React state already has the correct data — reloading
+      // from localStorage would overwrite it with empty values.
+      if (nameChanged) {
+        setMemory(loadMemory());
+        setXpData(loadXP());
+        setStreakData(loadStreaks());
+        setTopicData(loadTopicProgress());
+      }
       sbSaveSetting("profile", p);
     }
     setModal(null);

@@ -8,9 +8,9 @@ import { saveXP, saveStreaks } from "../utils/xp.js";
  * Handles one-time Supabase sync on login: loads memory, profile, topics,
  * XP, and streaks from the cloud (primary) and merges with local cache.
  *
- * Triggers on `user` (auth state) so that even when localStorage is empty
- * (new device, cleared cache, redeploy), the cloud profile is restored
- * automatically — no need to re-create from scratch.
+ * IMPORTANT: Profile/settings must load FIRST so setActiveStudent() is
+ * called before memory is saved to localStorage. Otherwise memory gets
+ * written under the wrong storage key and is lost on next load.
  *
  * Exposes `syncing` so App can show a loading screen instead of Setup
  * while the initial cloud load is in progress.
@@ -21,34 +21,17 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    // Sync once per authenticated session (user present), OR once when
-    // profile is loaded locally but no auth is configured.
     const trigger = user || profile;
     if (!trigger || sbSyncedRef.current) return;
     sbSyncedRef.current = true;
 
-    // Only show syncing state when user is authenticated (cloud data expected)
     if (user) setSyncing(true);
 
-    const loads = [];
-
-    // Load memory (Supabase-first, merge with local)
-    loads.push(
-      sbLoad().then(cloud => {
-        if (cloud) {
-          setMemory(prev => {
-            const merged = mergeMemory(prev, cloud);
-            saveMemory(merged);
-            return merged;
-          });
-          setDbConnected(true);
-        }
-      }).catch(() => {})
-    );
-
-    // Load profile settings + topics (cloud overrides local)
-    loads.push(
-      sbLoadSettings().then(settings => {
+    async function runSync() {
+      try {
+        // ── Phase 1: Load profile FIRST so setActiveStudent is called ──
+        // This ensures all subsequent localStorage writes use the correct key.
+        const settings = await sbLoadSettings().catch(() => null);
         if (settings?.profile) {
           const cloud = settings.profile;
           setProfile(prev => {
@@ -74,12 +57,24 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
             return merged;
           });
         }
-      }).catch(() => {})
-    );
 
-    // Load XP from cloud (cloud wins if higher)
-    loads.push(
-      sbLoadXP().then(cloudXP => {
+        // ── Phase 2: Load memory, XP, streaks in parallel ──
+        // Now that setActiveStudent has been called, storage keys are correct.
+        const [cloud, cloudXP, cloudStreaks] = await Promise.all([
+          sbLoad().catch(() => null),
+          sbLoadXP().catch(() => null),
+          sbLoadStreaks().catch(() => null),
+        ]);
+
+        if (cloud) {
+          setMemory(prev => {
+            const merged = mergeMemory(prev, cloud);
+            saveMemory(merged);
+            return merged;
+          });
+          setDbConnected(true);
+        }
+
         if (cloudXP) {
           setXpData(prev => {
             const best = cloudXP.total >= prev.total ? cloudXP : prev;
@@ -88,12 +83,7 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
           });
           setDbConnected(true);
         }
-      }).catch(() => {})
-    );
 
-    // Load streaks from cloud (merge dates)
-    loads.push(
-      sbLoadStreaks().then(cloudStreaks => {
         if (cloudStreaks) {
           setStreakData(prev => {
             const merged = { dates: [...new Set([...prev.dates, ...cloudStreaks.dates])].sort() };
@@ -102,11 +92,14 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
           });
           setDbConnected(true);
         }
-      }).catch(() => {})
-    );
+      } catch (e) {
+        console.warn("[cloudSync] sync failed:", e);
+      } finally {
+        setSyncing(false);
+      }
+    }
 
-    // Clear syncing state once all loads complete
-    Promise.allSettled(loads).then(() => setSyncing(false));
+    runSync();
   }, [user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData]);
 
   function resetSync() {
