@@ -2,6 +2,7 @@ import { SUBJECTS, SUBJECT_TOPICS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { getConfidence, avgConfidence, getTopicProgress, topicPct } from "../utils/topics.js";
+import { confidenceColor } from "../styles/tokens.js";
 
 export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, totalMem, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
   const lv = xpLevel(xpData.total);
@@ -54,7 +55,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
               </div>
               <div style={{ background: "#fff", padding: "10px 16px" }}>
                 {tTotal > 0 && <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ height: 4, borderRadius: 2, background: "#eee" }}><div style={{ height: "100%", borderRadius: 2, background: t.color, width: tpct + "%", transition: "width .5s" }} /></div></div>}
-                {confTopics.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>{confTopics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 14, borderRadius: 2, background: pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444" }} title={topic + ": " + pct + "%"} />)}</div>}
+                {confTopics.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>{confTopics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 14, borderRadius: 2, background: confidenceColor(pct) }} title={topic + ": " + pct + "%"} />)}</div>}
                 <div style={{ fontSize: 11, color: t.color, fontWeight: 700, marginBottom: 4 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "")}</div>
                 {mc > 0 && <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
                 <div style={{ display: "flex", gap: 6, marginTop: 6 }}>

@@ -1,5 +1,6 @@
 import { SUBJECT_TOPICS } from "../config/subjects.js";
 import { getTopicProgress } from "../utils/topics.js";
+import { confidenceColor } from "../styles/tokens.js";
 
 export function TopicsPanel({ subject, profile, topicData, onStudy, onClose }) {
   const topics = SUBJECT_TOPICS[subject.id] || [];
@@ -25,7 +26,7 @@ export function TopicsPanel({ subject, profile, topicData, onStudy, onClose }) {
             const p = prog[topic];
             const conf = p?.confidence || 0;
             const count = p?.studied || 0;
-            const confColor = conf >= 70 ? "#22c55e" : conf >= 40 ? "#f59e0b" : conf > 0 ? "#ef4444" : "#e0e0e0";
+            const confColor = confidenceColor(conf);
             return (
               <div key={topic} onClick={() => onStudy(topic)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: "1px solid #f0f0f0", marginBottom: 6, cursor: "pointer", background: count > 0 ? "#fafffe" : "#fff", transition: "all .15s" }} className="so">
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: count > 0 ? confColor + "20" : "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: count > 0 ? confColor : "#ccc", flexShrink: 0 }}>

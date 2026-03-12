@@ -1,7 +1,6 @@
 import { SUBJECTS, emptyMats } from "../config/subjects.js";
 import { setActiveStudent, saveProfile, loadMemory, getSessions } from "../utils/storage.js";
-import { loadXP } from "../utils/xp.js";
-import { loadStreaks } from "../utils/xp.js";
+import { loadXP, loadStreaks } from "../utils/xp.js";
 import { loadTopicProgress, recordTopicStudy } from "../utils/topics.js";
 import { sbSaveSetting } from "../utils/cloudSync.js";
 import { stopSpeaking } from "../utils/speech.js";

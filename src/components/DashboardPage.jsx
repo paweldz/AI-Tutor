@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { ALL_SUBJECT_LIST, mySubjects } from "../config/subjects.js";
+import { mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
+import { buildAllSummaries } from "../utils/summaries.js";
+import { confidenceColor } from "../styles/tokens.js";
 import s from "./Dashboard.module.css";
 
 /**
@@ -11,7 +13,7 @@ import s from "./Dashboard.module.css";
 export function DashboardPage({ memory, mats, profile, xpData, streakData }) {
   const navigate = useNavigate();
   const subs = profile ? mySubjects(profile) : [];
-  const allSums = Object.entries(memory?.subjects || {}).flatMap(([id, sums]) => (sums || []).map(sm => ({ ...sm, tutor: ALL_SUBJECT_LIST.find(t => t.id === id) || { emoji: "", label: id, gradient: "#999", color: "#999" } }))).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const allSums = buildAllSummaries(memory);
 
   if (!profile) {
     navigate("/");
@@ -67,7 +69,7 @@ export function DashboardPage({ memory, mats, profile, xpData, streakData }) {
                         <div key={topic} className={s.confRow}>
                           <div className={s.confTopic}>{topic}</div>
                           <div className={s.confTrack}>
-                            <div className={s.confBar} style={{ width: pct + "%", background: pct >= 70 ? "#22c55e" : pct >= 40 ? "#f59e0b" : "#ef4444" }} />
+                            <div className={s.confBar} style={{ width: pct + "%", background: confidenceColor(pct) }} />
                           </div>
                           <div className={s.confPct}>{pct}%</div>
                         </div>
