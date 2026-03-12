@@ -4,7 +4,8 @@ import { SummaryModal } from "./SummaryModal.jsx";
 import { Dashboard } from "./Dashboard.jsx";
 import { SettingsModal } from "./SettingsModal.jsx";
 import { TopicsPanel } from "./TopicsPanel.jsx";
-import { QuickQuiz, QuizBuilder } from "./QuizComponents.jsx";
+import { QuickQuiz } from "./QuickQuiz.jsx";
+import { QuizBuilder } from "./QuizBuilder.jsx";
 import { saveProfile } from "../utils/storage.js";
 
 export function StorageFullBanner({ onDismiss }) {

@@ -2,7 +2,7 @@
    TOPIC & CONFIDENCE TRACKING
    ═══════════════════════════════════════════════════════════════════ */
 
-import { readJSON, writeJSON, sKey, getSessions } from "./storage.js";
+import { readJSON, writeJSON, studentKey, getSessions } from "./storage.js";
 import { todayStr } from "./xp.js";
 import { SUBJECT_TOPICS } from "../config/subjects.js";
 
@@ -23,8 +23,8 @@ export function avgConfidence(scores) {
 
 /* Topic progress tracking — { subjectId: { topicName: { studied, lastDate, confidence } } } */
 export const TOPIC_KEY = "gcse_topics_v1";
-export function loadTopicProgress() { return readJSON(sKey(TOPIC_KEY), {}); }
-export function saveTopicProgress(data) { writeJSON(sKey(TOPIC_KEY), data); }
+export function loadTopicProgress() { return readJSON(studentKey(TOPIC_KEY), {}); }
+export function saveTopicProgress(data) { writeJSON(studentKey(TOPIC_KEY), data); }
 export function recordTopicStudy(prev, sid, topic, confidence) {
   const old = prev[sid]?.[topic] || { studied: 0, confidence: 0 };
   return { ...prev, [sid]: { ...prev[sid], [topic]: { studied: old.studied + 1, lastDate: todayStr(), confidence: typeof confidence === "number" ? confidence : old.confidence } } };

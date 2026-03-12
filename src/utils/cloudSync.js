@@ -63,7 +63,7 @@ export async function sbSaveSetting(key, value) {
       { user_id: user.id, key, value: typeof value === "string" ? value : JSON.stringify(value) },
       { onConflict: "user_id,key" }
     );
-  } catch {}
+  } catch (e) { console.warn("[cloudSync] sbSaveSetting failed:", e); }
 }
 
 export async function sbLoadSettings() {
@@ -99,7 +99,7 @@ export async function sbSaveXP(xpData) {
       { user_id: user.id, total: xpData.total, history: xpData.history },
       { onConflict: "user_id" }
     );
-  } catch {}
+  } catch (e) { console.warn("[cloudSync] sbSaveXP failed:", e); }
 }
 
 /* ── Streaks sync ────────────────────────────────────────────────── */
@@ -122,5 +122,5 @@ export async function sbSaveStreaks(streakData) {
       { user_id: user.id, dates: streakData.dates },
       { onConflict: "user_id" }
     );
-  } catch {}
+  } catch (e) { console.warn("[cloudSync] sbSaveStreaks failed:", e); }
 }

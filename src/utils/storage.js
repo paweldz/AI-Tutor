@@ -19,7 +19,7 @@ export function writeJSON(key, val) {
 /* Per-student key: appends normalised student name so each child has their own data */
 let _activeStudent = "";
 export function setActiveStudent(name) { _activeStudent = (name || "").trim().toLowerCase().replace(/\s+/g, "_"); }
-export function sKey(base) { return _activeStudent ? base + "_" + _activeStudent : base; }
+export function studentKey(base) { return _activeStudent ? base + "_" + _activeStudent : base; }
 
 export function migrateIfNeeded() {
   const oldMem = readJSON("gcse_memory_v1");
@@ -41,11 +41,11 @@ export function migrateIfNeeded() {
 export function loadProfile()  { return readJSON(KEYS.profile, null); }
 export function saveProfile(p) { writeJSON(KEYS.profile, p); if (p?.name) setActiveStudent(p.name); }
 export function loadMemory() {
-  let d = readJSON(sKey("gcse_memory_v2"));
-  if (!d) { d = readJSON("gcse_memory_v2"); if (d && _activeStudent) { writeJSON(sKey("gcse_memory_v2"), d); } }
+  let d = readJSON(studentKey("gcse_memory_v2"));
+  if (!d) { d = readJSON("gcse_memory_v2"); if (d && _activeStudent) { writeJSON(studentKey("gcse_memory_v2"), d); } }
   return d?.version ? d : { version: 2, subjects: {} };
 }
-export function saveMemory(m)  { writeJSON(sKey("gcse_memory_v2"), m); }
+export function saveMemory(m)  { writeJSON(studentKey("gcse_memory_v2"), m); }
 export function getSessions(mem, sid) { return mem?.subjects?.[sid] || []; }
 export function addSessionToMem(mem, sid, data) {
   const u = { ...mem, subjects: { ...mem.subjects, [sid]: [...(mem.subjects[sid] || []), data] } };

@@ -8,7 +8,7 @@ export const YEARS  = ["Pre-GCSE","Year 10","Year 11"];
 export const TIERS  = ["Foundation","Higher"];
 
 /* Template helpers to reduce repetition */
-function stdWelcome(tutorName, p, board, memCount, extra) {
+function buildWelcomeMessage(tutorName, p, board, memCount, extra) {
   const b = board ? ` ${board} ${p.tier}.` : "";
   const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
   return `Hello ${p.name}! I'm ${tutorName}.${b}${m}\n\n${extra || "What shall we work on?"}`;
@@ -87,7 +87,7 @@ export const SUBJECTS = {
     tutor: { name: "Mr. Chen" },
     color: "#1a3a7a", gradient: "linear-gradient(135deg,#1a3a7a,#2980b9)", bg: "#f3f6fd",
     description: "Number, algebra, geometry & stats",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Chen", p, board, memCount, "What are we working on?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Chen", p, board, memCount, "What are we working on?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nMATHS: Show every step. When wrong ask \"where did it go wrong?\" first. Offer multiple methods. Flag: units, sig figs. Scaffold: trivial>easy>medium>hard.";
       if (board === "Edexcel") s += " Edexcel: 3 papers (1 non-calc).";
@@ -103,7 +103,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Williams" },
     color: "#5b1a6b", gradient: "linear-gradient(135deg,#5b1a6b,#8e44ad)", bg: "#faf3fd",
     description: "Language & Literature",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Williams", p, board, memCount, "Language or Literature today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Williams", p, board, memCount, "Language or Literature today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nENGLISH: Push for the 'so what' on every technique. Mark writing: score + reasons + one improvement. Build vocab.";
       if (board === "AQA") s += " AQA: P1 fiction+creative, P2 non-fiction+viewpoint, AO1-AO6.";
@@ -120,7 +120,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Patel" },
     color: "#1a6b3c", gradient: "linear-gradient(135deg,#1a6b3c,#27ae60)", bg: "#f3fdf6",
     description: "Biology, Chemistry & Physics",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Patel", p, board, memCount, "Biology, Chemistry or Physics today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Patel", p, board, memCount, "Biology, Chemistry or Physics today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nSCIENCE: Use analogies. Flag exam technique (\"6-mark answer needs 6 points\"). Show every calc step.";
       if (board === "AQA") s += " AQA: required practicals, ~30% maths, Trilogy or Triple.";
@@ -137,7 +137,7 @@ export const SUBJECTS = {
     tutor: { name: "Mr. Hartley" },
     color: "#7a4a1a", gradient: "linear-gradient(135deg,#7a4a1a,#a66b2f)", bg: "#fdf8f3",
     description: "British, world & thematic history",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Hartley", p, board, memCount, "Which period or topic shall we explore?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Hartley", p, board, memCount, "Which period or topic shall we explore?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nHISTORY: Always link evidence to argument. Practice source analysis: provenance, reliability, utility. Push for 'so what' conclusions. Teach PEE/PEEL paragraphs.";
       if (board === "AQA") s += " AQA: 2 period studies + thematic + British depth.";
@@ -153,7 +153,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Rivera" },
     color: "#1a6b5a", gradient: "linear-gradient(135deg,#1a6b5a,#1abc9c)", bg: "#f3fdfa",
     description: "Physical & human geography",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Rivera", p, board, memCount, "Physical or human geography today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Rivera", p, board, memCount, "Physical or human geography today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nGEOGRAPHY: Use real case studies. Practice map skills and data interpretation. Push for named examples in every answer. Teach command word awareness.";
       if (board === "AQA") s += " AQA: Living world, Urban issues, Physical landscapes, Fieldwork.";
@@ -169,7 +169,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Okonkwo" },
     color: "#2d3a8c", gradient: "linear-gradient(135deg,#2d3a8c,#5b6abf)", bg: "#f4f4fd",
     description: "Programming, theory & algorithms",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Okonkwo", p, board, memCount, "Theory, programming, or algorithms today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Okonkwo", p, board, memCount, "Theory, programming, or algorithms today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nCOMPUTER SCIENCE: For code, show step-by-step logic. Use trace tables. Explain theory with real analogies. Cover both Python and pseudocode.";
       if (board === "AQA") s += " AQA: 2 papers, Python-focused, computational thinking.";
@@ -185,7 +185,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Begum" },
     color: "#6b3a8a", gradient: "linear-gradient(135deg,#6b3a8a,#9b59b6)", bg: "#f9f3fd",
     description: "Beliefs, practices & ethics",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Begum", p, board, memCount, "Which religion or ethical topic shall we discuss?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Begum", p, board, memCount, "Which religion or ethical topic shall we discuss?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nRELIGIOUS STUDIES: Always present multiple viewpoints. Use specific teachings and sacred texts as evidence. Practice 12-mark evaluation questions.";
       if (board === "AQA") s += " AQA: 2 religions + 4 thematic studies.";
@@ -200,7 +200,7 @@ export const SUBJECTS = {
     tutor: { name: "Mr. Osei" },
     color: "#1a5a3a", gradient: "linear-gradient(135deg,#1a5a3a,#2e8b57)", bg: "#f3fdf7",
     description: "Enterprise, marketing, finance & operations",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Osei", p, board, memCount, "Marketing, finance, operations, or HR today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Osei", p, board, memCount, "Marketing, finance, operations, or HR today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nBUSINESS: Use real company examples. Practice applying theory to case studies. Teach calculation methods (GP%, NP%, ARR). Push for evaluation in every answer.";
       if (board === "AQA") s += " AQA: 2 papers, business in the real world + influences.";
@@ -216,7 +216,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Fontaine" },
     color: "#c44569", gradient: "linear-gradient(135deg,#c44569,#e8608a)", bg: "#fdf3f6",
     description: "Fine art, graphics & photography",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Fontaine", p, board, memCount, "Shall we work on your portfolio, explore artists, or practise techniques?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Fontaine", p, board, memCount, "Shall we work on your portfolio, explore artists, or practise techniques?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nART & DESIGN: Focus on annotation and critical analysis. Guide formal elements vocabulary. Help with artist research and comparisons. Coach exam preparation and time management for the externally set assignment.";
       if (board === "AQA") s += " AQA: Portfolio (60%) + Externally Set Assignment (40%).";
@@ -231,7 +231,7 @@ export const SUBJECTS = {
     tutor: { name: "Mr. Abara" },
     color: "#8a1a5a", gradient: "linear-gradient(135deg,#8a1a5a,#c2185b)", bg: "#fdf3f8",
     description: "Performance, composition & listening",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Abara", p, board, memCount, "Performance, composition, or listening practice?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Abara", p, board, memCount, "Performance, composition, or listening practice?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nMUSIC: Use correct musical terminology (texture, timbre, dynamics, tempo). Help with set work analysis. Guide composition techniques. Practice listening question technique.";
       if (board === "AQA") s += " AQA: Understanding Music, Performing, Composing. Set works across 4 areas.";
@@ -247,7 +247,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Park" },
     color: "#c44500", gradient: "linear-gradient(135deg,#c44500,#e06520)", bg: "#fdf5f0",
     description: "Performance, devising & written exam",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Park", p, board, memCount, "Performance skills, set text, or devising today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Park", p, board, memCount, "Performance skills, set text, or devising today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nDRAMA: Use correct drama terminology (proxemics, semiotics, Brechtian, naturalism). Help with set text analysis. Coach performance evaluation writing. Guide devising logs.";
       if (board === "AQA") s += " AQA: Understanding Drama, Devising Drama, Texts in Practice.";
@@ -262,7 +262,7 @@ export const SUBJECTS = {
     tutor: { name: "Mr. Novak" },
     color: "#5a5a1a", gradient: "linear-gradient(135deg,#5a5a1a,#8a8a2a)", bg: "#fdfdf3",
     description: "Materials, systems & design principles",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Mr. Novak", p, board, memCount, "Design theory, materials, or your NEA today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Novak", p, board, memCount, "Design theory, materials, or your NEA today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nDESIGN & TECHNOLOGY: Cover materials (timber, metals, polymers, textiles), manufacturing processes, design principles, and environmental impact. Help with iterative design and NEA structure.";
       if (board === "AQA") s += " AQA: Core technical + specialist + designing & making principles.";
@@ -278,7 +278,7 @@ export const SUBJECTS = {
     tutor: { name: "Coach Thompson" },
     color: "#1a7a3a", gradient: "linear-gradient(135deg,#1a7a3a,#2ecc71)", bg: "#f3fdf5",
     description: "Anatomy, training & sport psychology",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Coach Thompson", p, board, memCount, "Anatomy, training principles, or sport psychology?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Coach Thompson", p, board, memCount, "Anatomy, training principles, or sport psychology?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nPE: Cover anatomy & physiology, movement analysis, physical training, sport psychology, socio-cultural influences, and health. Use sport-specific examples. Help with data analysis questions.";
       if (board === "AQA") s += " AQA: 2 papers + practical performance + analysis.";
@@ -294,7 +294,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Lewin" },
     color: "#4a1a7a", gradient: "linear-gradient(135deg,#4a1a7a,#7e57c2)", bg: "#f7f3fd",
     description: "Research methods, memory & development",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Lewin", p, board, memCount, "Which topic area shall we explore?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Lewin", p, board, memCount, "Which topic area shall we explore?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nPSYCHOLOGY: Reference key studies by name. Practice research methods terminology. Evaluate using strengths/weaknesses format. Teach AO1 (knowledge) vs AO2 (application) vs AO3 (evaluation).";
       if (board === "AQA") s += " AQA: Cognition & Behaviour, Social Context, Research Methods.";
@@ -310,7 +310,7 @@ export const SUBJECTS = {
     tutor: { name: "Ms. Chang" },
     color: "#2a6a4a", gradient: "linear-gradient(135deg,#2a6a4a,#3da06a)", bg: "#f3fdf8",
     description: "Micro, macro & international trade",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Ms. Chang", p, board, memCount, "Microeconomics, macroeconomics, or something specific?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Chang", p, board, memCount, "Microeconomics, macroeconomics, or something specific?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nECONOMICS: Use supply/demand diagrams mentally. Teach chains of reasoning. Push for real-world examples. Practice data response and extended writing.";
       if (board === "Edexcel") s += " Edexcel: Theme 1 micro, Theme 2 macro.";
@@ -325,7 +325,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Morris" },
     color: "#6b1a3a", gradient: "linear-gradient(135deg,#6b1a3a,#a02255)", bg: "#fdf3f6",
     description: "Families, education, crime & theory",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Morris", p, board, memCount, "Which topic \u2014 families, education, crime, or theory?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Morris", p, board, memCount, "Which topic \u2014 families, education, crime, or theory?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nSOCIOLOGY: Reference key sociologists by name. Use correct terminology (functionalism, Marxism, feminism, interactionism). Practice for evidence + evaluation. Link theory to contemporary examples.";
       if (board === "AQA") s += " AQA: Education, Families, Crime & Deviance, Stratification.";
@@ -340,7 +340,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Varro" },
     color: "#5a3a1a", gradient: "linear-gradient(135deg,#5a3a1a,#8b6914)", bg: "#fdf9f3",
     description: "Translation, grammar & civilisation",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Varro", p, board, memCount, "Grammar, translation, or civilisation today? Salve!"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Varro", p, board, memCount, "Grammar, translation, or civilisation today? Salve!"); },
     systemPromptSpecific(board, tier) {
       let s = "\nLATIN: Practice translation both ways. Drill declensions and conjugations systematically. Use etymology to make vocab memorable. Cover set texts and civilisation content.";
       if (board === "OCR") s += " OCR: 3 components \u2014 Language, Prose Literature, Civilisation/Verse.";
@@ -355,7 +355,7 @@ export const SUBJECTS = {
     tutor: { name: "Dr. Starling" },
     color: "#1a1a5a", gradient: "linear-gradient(135deg,#1a1a5a,#3a3a9a)", bg: "#f3f3fd",
     description: "Solar system, stars & cosmology",
-    welcomeMessage(p, board, memCount) { return stdWelcome("Dr. Starling", p, board, memCount, "Planets, stars, or the universe today?"); },
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Starling", p, board, memCount, "Planets, stars, or the universe today?"); },
     systemPromptSpecific(board, tier) {
       let s = "\nASTRONOMY: Use scale analogies to make distances relatable. Cover observational techniques, the solar system, stellar evolution, and cosmology. Encourage diagram sketching for orbits and HR diagrams.";
       if (board === "Edexcel") s += " Edexcel: 2 papers, practical astronomy skills, use of telescopes.";
