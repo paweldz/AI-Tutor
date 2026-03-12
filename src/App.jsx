@@ -62,7 +62,7 @@ export default function App() {
     setStreakData(prev => recordActivity(prev));
   }
 
-  const { dbConnected, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
+  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,
@@ -111,6 +111,17 @@ export default function App() {
     </div>
   );
   if (authEnabled && !user) return <AuthScreen onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} />;
+
+  // Wait for cloud sync to finish restoring profile before showing Setup
+  if (syncing) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 28, marginBottom: 12 }}>{"\ud83e\udde0"}</div>
+        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 600 }}>Restoring your data...</div>
+        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Loading profile, sessions & progress</div>
+      </div>
+    </div>
+  );
 
   if (!profile) return <Setup onDone={updateProfile} />;
 
