@@ -163,6 +163,7 @@ export default function App() {
         msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
         dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
         setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
+        setQuizSubject={setQuizSubject} setTopicsFor={setTopicsFor}
         setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
         genSummary={handleGenSummary} setActive={setActive} switchUser={switchUser}
         startMicRef={startMicRef} stopMic={stopMic}
