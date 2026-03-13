@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { stopSpeaking } from "../utils/speech.js";
 import { getActiveNotes } from "./TeacherNotes.jsx";
+import { getStudentNoteCount } from "./StudentNotes.jsx";
 
 function TestMenu({ subject, examMode, setExamMode, setBuildQuizFor, setQuizSubject }) {
   const [open, setOpen] = useState(false);
@@ -42,10 +43,51 @@ function TestMenu({ subject, examMode, setExamMode, setBuildQuizFor, setQuizSubj
   );
 }
 
+function NotesMenu({ subject, teacherNoteCount, studentNoteCount, setModal }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const total = teacherNoteCount + studentNoteCount;
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const items = [
+    { emoji: "\ud83d\udccc", label: "My Notes", desc: "Post-it reminders & key facts", count: studentNoteCount, onClick: () => { setModal("studentNotes"); setOpen(false); } },
+    { emoji: "\ud83c\udfeb", label: "Teacher Notes", desc: "Feedback from your teachers", count: teacherNoteCount, onClick: () => { setModal("teacherNotes"); setOpen(false); } },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button className="btn" onClick={() => setOpen(o => !o)} style={{ position: "relative", padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: total > 0 ? "#f59e0b" : "rgba(0,0,0,0.07)", color: total > 0 ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>
+        {"\ud83d\udcdd"} Notes {open ? "\u25b4" : "\u25be"}
+        {total > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>{total}</span>}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: "1px solid rgba(0,0,0,0.08)", minWidth: 230, zIndex: 200, overflow: "hidden", animation: "ci .15s ease" }}>
+          {items.map((it, i) => (
+            <button key={i} onClick={it.onClick} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "transparent", border: "none", borderBottom: i < items.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 18 }}>{it.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e" }}>{it.label}</div>
+                <div style={{ fontSize: 10, color: "#999" }}>{it.desc}</div>
+              </div>
+              {it.count > 0 && <span style={{ background: subject.color + "18", color: subject.color, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>{it.count}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Header({
   profile, active, subject, curMats, examMode, voiceMode, convoMode,
   msgs, sumLoading, autoSumming, dbConnected, totalMem, voiceCfg, micSupported,
-  teacherNotes, curMem,
+  teacherNotes, studentNotes, curMem,
   setModal, setExamMode, setBuildQuizFor, setQuizSubject, setTopicsFor,
   setVoiceMode, setConvoMode,
   genSummary, setActive, switchUser, startMicRef, stopMic
@@ -61,11 +103,7 @@ export function Header({
         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
           <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
           <button className="btn" onClick={() => setTopicsFor(subject)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: "rgba(0,0,0,0.07)", color: "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} Topics</button>
-          {(() => { const ac = active ? getActiveNotes(teacherNotes, active).length : 0; return (
-            <button className="btn" onClick={() => setModal("teacherNotes")} style={{ position: "relative", padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: ac > 0 ? "#f59e0b" : "rgba(0,0,0,0.07)", color: ac > 0 ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>
-              {"\ud83c\udfeb"} Notes{ac > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>{ac}</span>}
-            </button>
-          ); })()}
+          <NotesMenu subject={subject} teacherNoteCount={active ? getActiveNotes(teacherNotes, active).length : 0} studentNoteCount={active ? getStudentNoteCount(studentNotes, active) : 0} setModal={setModal} />
           <TestMenu subject={subject} examMode={examMode} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} />
           {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) { stopSpeaking(); setConvoMode(false); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
           {voiceMode && voiceCfg && micSupported && <button className="btn" onClick={() => { setConvoMode(v => { if (!v) { stopSpeaking(); setTimeout(() => startMicRef.current(), 200); } else { stopMic(); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: convoMode ? "#059669" : "rgba(0,0,0,0.07)", color: convoMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700, animation: convoMode ? "mp 2s ease infinite" : "none" }}>{convoMode ? "\ud83d\udd04 Conversation" : "\ud83d\udde3\ufe0f Converse"}</button>}

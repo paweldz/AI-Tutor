@@ -57,6 +57,15 @@ export const TEACHER_NOTES_KEY = "gcse_teacher_notes_v1";
 export function loadTeacherNotes() { return readJSON(studentKey(TEACHER_NOTES_KEY), {}); }
 export function saveTeacherNotes(data) { writeJSON(studentKey(TEACHER_NOTES_KEY), data); }
 
+/* ═══════════════════════════════════════════════════════════════════
+   STUDENT NOTES — quick post-it style notes per subject
+   Shape: { [subjectId]: Array<{ id, topic, text, tags, date }> }
+   ═══════════════════════════════════════════════════════════════════ */
+
+export const STUDENT_NOTES_KEY = "gcse_student_notes_v1";
+export function loadStudentNotes() { return readJSON(studentKey(STUDENT_NOTES_KEY), {}); }
+export function saveStudentNotes(data) { writeJSON(studentKey(STUDENT_NOTES_KEY), data); }
+
 /**
  * Resolve the topic list for a subject.
  * Priority: customTopics > board/tier defaults > generic SUBJECT_TOPICS

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { saveMemory } from "../utils/storage.js";
 import { saveXP, saveStreaks, recordActivity } from "../utils/xp.js";
-import { saveTopicProgress, saveCustomTopics, saveTeacherNotes } from "../utils/topics.js";
+import { saveTopicProgress, saveCustomTopics, saveTeacherNotes, saveStudentNotes } from "../utils/topics.js";
 import { sbSaveXP, sbSaveStreaks, sbSaveSetting } from "../utils/cloudSync.js";
 
 /**
@@ -12,12 +12,13 @@ import { sbSaveXP, sbSaveStreaks, sbSaveSetting } from "../utils/cloudSync.js";
  * Returns { cancelPendingSaves } so switchUser can cancel debounced
  * cloud writes before clearing state (prevents empty-data overwrites).
  */
-export function usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, profile, setStreakData, setStorageFull }) {
+export function usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, profile, setStreakData, setStorageFull }) {
   const xpTimerRef = useRef(null);
   const streakTimerRef = useRef(null);
   const topicTimerRef = useRef(null);
   const customTopicsTimerRef = useRef(null);
   const teacherNotesTimerRef = useRef(null);
+  const studentNotesTimerRef = useRef(null);
 
   useEffect(() => { saveMemory(memory); }, [memory]);
 
@@ -64,6 +65,14 @@ export function usePersistence({ memory, xpData, streakData, topicData, customTo
     }
   }, [teacherNotes]);
 
+  useEffect(() => {
+    saveStudentNotes(studentNotes);
+    clearTimeout(studentNotesTimerRef.current);
+    if (studentNotes && Object.keys(studentNotes).length > 0) {
+      studentNotesTimerRef.current = setTimeout(() => sbSaveSetting("studentNotes", studentNotes), 2000);
+    }
+  }, [studentNotes]);
+
   /** Cancel all pending debounced cloud saves (call before switchUser clears state). */
   const cancelPendingSaves = useCallback(() => {
     clearTimeout(xpTimerRef.current);
@@ -71,6 +80,7 @@ export function usePersistence({ memory, xpData, streakData, topicData, customTo
     clearTimeout(topicTimerRef.current);
     clearTimeout(customTopicsTimerRef.current);
     clearTimeout(teacherNotesTimerRef.current);
+    clearTimeout(studentNotesTimerRef.current);
   }, []);
 
   useEffect(() => {

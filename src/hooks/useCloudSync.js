@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { saveProfile, setActiveStudent, saveMemory } from "../utils/storage.js";
 import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks } from "../utils/cloudSync.js";
-import { saveTopicProgress, saveCustomTopics, saveTeacherNotes } from "../utils/topics.js";
+import { saveTopicProgress, saveCustomTopics, saveTeacherNotes, saveStudentNotes } from "../utils/topics.js";
 import { saveXP, saveStreaks } from "../utils/xp.js";
 import { supabase } from "../lib/supabase.js";
 
@@ -16,7 +16,7 @@ import { supabase } from "../lib/supabase.js";
  * Exposes `syncing` so App can show a loading screen instead of Setup
  * while the initial cloud load is in progress.
  */
-export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes }) {
+export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes }) {
   const sbSyncedRef = useRef(false);
   const lastUserIdRef = useRef(null);
   const [dbConnected, setDbConnected] = useState(false);
@@ -101,6 +101,19 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
           });
         }
 
+        if (settings?.studentNotes && setStudentNotes) {
+          setStudentNotes(prev => {
+            const merged = { ...prev };
+            for (const [sid, notes] of Object.entries(settings.studentNotes)) {
+              const existing = merged[sid] || [];
+              const ids = new Set(existing.map(n => n.id));
+              merged[sid] = [...existing, ...notes.filter(n => !ids.has(n.id))];
+            }
+            saveStudentNotes(merged);
+            return merged;
+          });
+        }
+
         // ── Phase 2: Load memory, XP, streaks in parallel ──
         // Now that setActiveStudent has been called, storage keys are correct.
         const [cloud, cloudXP, cloudStreaks] = await Promise.all([
@@ -152,7 +165,7 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
     }
 
     runSync();
-  }, [user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes]);
+  }, [user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes]);
 
   function resetSync() {
     sbSyncedRef.current = false;

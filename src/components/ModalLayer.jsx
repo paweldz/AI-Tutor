@@ -8,6 +8,7 @@ import { QuickQuiz } from "./QuickQuiz.jsx";
 import { QuizBuilder } from "./QuizBuilder.jsx";
 import { TeacherNotes } from "./TeacherNotes.jsx";
 import { SessionHistory } from "./SessionHistory.jsx";
+import { StudentNotes } from "./StudentNotes.jsx";
 import { saveProfile } from "../utils/storage.js";
 
 export function StorageFullBanner({ onDismiss }) {
@@ -27,6 +28,7 @@ export function ModalLayer({
   mats, setMats, curMats,
   updateProfile, studyTopic, gainXP, onQuizComplete, onSaveCustomTopics,
   teacherNotes, onSaveTeacherNotes,
+  studentNotes, onSaveStudentNotes,
   onSessionAction,
   clearSubjectMem, clearAllMem,
 }) {
@@ -56,6 +58,7 @@ export function ModalLayer({
       {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} customTopics={customTopics} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} onSaveCustomTopics={onSaveCustomTopics} />}
       {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
       {modal === "teacherNotes" && active && <TeacherNotes subject={subject} notes={teacherNotes} onSave={onSaveTeacherNotes} onClose={() => setModal(null)} />}
+      {modal === "studentNotes" && active && <StudentNotes subject={subject} profile={profile} customTopics={customTopics} notes={studentNotes} onSave={onSaveStudentNotes} onClose={() => setModal(null)} />}
       {modal === "history" && active && <SessionHistory subject={subject} memory={memory} onAction={(type, data) => { onSessionAction(type, data); setModal(null); }} onClose={() => setModal(null)} />}
     </>
   );
