@@ -1,0 +1,208 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 760px;
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.4);
+}
+
+.header {
+  padding: 22px 26px;
+  background: linear-gradient(135deg, #1a1a2e, #302b63);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerTag {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+
+.headerTitle {
+  color: #fff;
+  font-size: 20px;
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+}
+
+.headerMeta {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.closeBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 22px;
+}
+
+.subjectGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.subjectCard {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+.subjectCardHeader {
+  padding: 14px 16px;
+  color: #fff;
+}
+
+.subjectEmoji {
+  font-size: 26px;
+}
+
+.subjectTutor {
+  font-weight: 700;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.subjectLabel {
+  opacity: 0.65;
+  font-size: 12px;
+}
+
+.subjectCardBody {
+  padding: 12px 16px;
+  background: #fafafa;
+}
+
+.sessionCount {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.lastDate {
+  font-size: 11px;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.matCount {
+  font-size: 11px;
+  color: #888;
+}
+
+.confRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.confTopic {
+  font-size: 10px;
+  color: #888;
+  width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confTrack {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #eee;
+}
+
+.confBar {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.confPct {
+  font-size: 10px;
+  font-weight: 700;
+  color: #666;
+  width: 28px;
+}
+
+.sectionTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  color: #1a1a2e;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 28px;
+  background: #f8f8f8;
+  border-radius: 14px;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.summaryCard {
+  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.summaryHeader {
+  padding: 9px 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summarySubject {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.summaryDate {
+  margin-left: auto;
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.summaryBody {
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #444;
+  background: #fafafa;
+}

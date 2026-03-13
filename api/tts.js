@@ -54,6 +54,6 @@ export default async function handler(req, res) {
     return res.send(buffer);
   } catch (e) {
     console.error("TTS proxy error:", e);
-    return res.status(500).json({ error: "TTS failed: " + e.message });
+    return res.status(500).json({ error: "Text-to-speech failed — please try again" });
   }
 }
