@@ -1,10 +1,10 @@
-import { SUBJECTS, SUBJECT_TOPICS, mySubjects } from "../config/subjects.js";
+import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
-import { getConfidence, avgConfidence, getTopicProgress, topicPct } from "../utils/topics.js";
+import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForSubject } from "../utils/topics.js";
 import { confidenceColor } from "../styles/tokens.js";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, totalMem, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
@@ -40,8 +40,8 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           const conf = getConfidence(memory, t.id);
           const avg = avgConfidence(conf);
           const confTopics = Object.entries(conf).slice(0, 4);
-          const tpct = topicPct(topicData, t.id);
-          const tTotal = (SUBJECT_TOPICS[t.id] || []).length;
+          const tpct = topicPct(topicData, t.id, profile, customTopics);
+          const tTotal = getTopicsForSubject(t.id, profile, customTopics).length;
           const tDone = Object.values(getTopicProgress(topicData, t.id)).filter(v => v.studied > 0).length;
           return (
             <div key={t.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both` }}>

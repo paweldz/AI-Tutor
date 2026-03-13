@@ -21,9 +21,9 @@ export function ModalLayer({
   modal, setModal, active, subject, showSum, setShowSum,
   quizSubject, setQuizSubject, topicsFor, setTopicsFor,
   buildQuizFor, setBuildQuizFor,
-  memory, setMemory, profile, setProfile, topicData,
+  memory, setMemory, profile, setProfile, topicData, customTopics,
   mats, setMats, curMats,
-  updateProfile, studyTopic, gainXP, onQuizComplete,
+  updateProfile, studyTopic, gainXP, onQuizComplete, onSaveCustomTopics,
   clearSubjectMem, clearAllMem,
 }) {
   return (
@@ -49,7 +49,7 @@ export function ModalLayer({
       {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
       {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
       {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
-      {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} />}
+      {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} customTopics={customTopics} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} onSaveCustomTopics={onSaveCustomTopics} />}
       {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
     </>
   );

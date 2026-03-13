@@ -5,7 +5,7 @@ import "./global.css";
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, loadMemory, getSessions, clearSubjectMem, clearAllMem } from "./utils/storage.js";
 import { loadXP, addXP, loadStreaks, recordActivity } from "./utils/xp.js";
-import { loadTopicProgress } from "./utils/topics.js";
+import { loadTopicProgress, loadCustomTopics, saveCustomTopics } from "./utils/topics.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 
@@ -42,6 +42,7 @@ export default function App() {
   const [xpData, setXpData] = useState(loadXP);
   const [streakData, setStreakData] = useState(loadStreaks);
   const [topicData, setTopicData] = useState(loadTopicProgress);
+  const [customTopics, setCustomTopics] = useState(loadCustomTopics);
   const [quizSubject, setQuizSubject] = useState(null);
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null);
@@ -62,7 +63,20 @@ export default function App() {
     setStreakData(prev => recordActivity(prev));
   }
 
-  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData });
+  function handleSaveCustomTopics(subjectId, topics) {
+    setCustomTopics(prev => {
+      const updated = { ...prev };
+      if (topics) {
+        updated[subjectId] = topics;
+      } else {
+        delete updated[subjectId];
+      }
+      saveCustomTopics(updated);
+      return updated;
+    });
+  }
+
+  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,
@@ -70,7 +84,7 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, profile, setStreakData, setStorageFull });
+  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, profile, setStreakData, setStorageFull });
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
@@ -81,9 +95,9 @@ export default function App() {
 
   const { setActive, updateProfile, switchUser, studyTopic } = useSessionManager({
     active, sessions, msgs, curMats, profile, memory, autoSumming,
-    xpData, streakData, topicData,
+    xpData, streakData, topicData, customTopics,
     setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-    setXpData, setStreakData, setTopicData, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
+    setXpData, setStreakData, setTopicData, setCustomTopics, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
   });
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [sessions, loading]);
@@ -137,9 +151,9 @@ export default function App() {
         topicsFor={topicsFor} setTopicsFor={setTopicsFor}
         buildQuizFor={buildQuizFor} setBuildQuizFor={setBuildQuizFor}
         memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile}
-        topicData={topicData} mats={mats} setMats={setMats} curMats={curMats}
+        topicData={topicData} customTopics={customTopics} mats={mats} setMats={setMats} curMats={curMats}
         updateProfile={updateProfile} studyTopic={studyTopic}
-        gainXP={gainXP} onQuizComplete={handleQuizComplete}
+        gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics}
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
       />
 
@@ -157,7 +171,7 @@ export default function App() {
       {!active ? (
         <HomeScreen
           profile={profile} memory={memory} mats={mats} xpData={xpData}
-          streakData={streakData} topicData={topicData} totalMem={totalMem}
+          streakData={streakData} topicData={topicData} customTopics={customTopics} totalMem={totalMem}
           onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
           onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
         />

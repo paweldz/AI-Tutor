@@ -393,6 +393,52 @@ export const SUBJECT_TOPICS = {
   astronomy: ["Earth, Moon & Sun", "The solar system", "Lenses & telescopes", "Electromagnetic spectrum", "Stellar evolution", "HR diagrams", "Galaxies & cosmology", "The Big Bang", "Observational techniques", "Space exploration", "Gravity & orbits", "Astrophotography & data"],
 };
 
+/* ═══════════════════════════════════════════════════════════════════
+   BOARD/TIER-SPECIFIC TOPIC OVERRIDES
+   Keys: `${board}_${tier}` or just `${board}` for subjects without tier splits.
+   Only subjects with meaningful board differences need entries here;
+   others fall back to SUBJECT_TOPICS above.
+   ═══════════════════════════════════════════════════════════════════ */
+
+export const BOARD_TIER_TOPICS = {
+  math: {
+    AQA_Higher: ["Number: fractions, decimals, percentages", "Number: indices & surds", "Algebra: expressions & equations", "Algebra: graphs & functions", "Algebra: sequences", "Algebra: inequalities", "Quadratic equations & simultaneous equations", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Geometry: circle theorems", "Geometry: vectors", "Trigonometry (inc. sine/cosine rule)", "Probability (inc. conditional)", "Statistics: averages & spread", "Statistics: charts & diagrams", "Functions & iteration"],
+    AQA_Foundation: ["Number: fractions, decimals, percentages", "Number: basic indices & roots", "Algebra: expressions & equations", "Algebra: linear graphs", "Algebra: sequences", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Trigonometry (basic SOHCAHTOA)", "Probability", "Statistics: averages & spread", "Statistics: charts & diagrams"],
+    Edexcel_Higher: ["Number: fractions, decimals, percentages", "Number: indices & surds", "Algebra: expressions & equations", "Algebra: graphs & functions", "Algebra: sequences", "Algebra: inequalities", "Quadratic equations & formulae", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Geometry: circle theorems", "Geometry: vectors", "Trigonometry (inc. sine/cosine rule)", "Probability (inc. conditional)", "Statistics: averages & spread", "Statistics: charts & diagrams", "Functions & iteration"],
+    Edexcel_Foundation: ["Number: fractions, decimals, percentages", "Number: basic indices & roots", "Algebra: expressions & equations", "Algebra: linear graphs", "Algebra: sequences", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Trigonometry (basic SOHCAHTOA)", "Probability", "Statistics: averages & spread", "Statistics: charts & diagrams"],
+    OCR_Higher: ["Number: fractions, decimals, percentages", "Number: indices & surds", "Algebra: expressions & equations", "Algebra: graphs & functions", "Algebra: sequences", "Algebra: inequalities", "Quadratic equations & simultaneous equations", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Geometry: circle theorems", "Geometry: vectors", "Trigonometry (inc. sine/cosine rule)", "Probability (inc. conditional)", "Statistics: averages & spread", "Statistics: charts & diagrams", "Proof & functions"],
+    OCR_Foundation: ["Number: fractions, decimals, percentages", "Number: basic indices & roots", "Algebra: expressions & equations", "Algebra: linear graphs", "Algebra: sequences", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Trigonometry (basic SOHCAHTOA)", "Probability", "Statistics: averages & spread", "Statistics: charts & diagrams"],
+  },
+  science: {
+    AQA_Higher: ["Biology: cell biology", "Biology: organisation", "Biology: infection & response", "Biology: bioenergetics", "Biology: homeostasis & response", "Biology: inheritance, variation & evolution", "Biology: ecology", "Chemistry: atomic structure & periodic table", "Chemistry: bonding, structure & properties", "Chemistry: quantitative chemistry", "Chemistry: chemical changes", "Chemistry: energy changes", "Chemistry: rates & equilibrium", "Chemistry: organic chemistry", "Chemistry: chemical analysis", "Chemistry: atmosphere & resources", "Physics: energy", "Physics: electricity", "Physics: particle model of matter", "Physics: atomic structure & radiation", "Physics: forces", "Physics: waves", "Physics: magnetism & electromagnetism", "Physics: space physics"],
+    AQA_Foundation: ["Biology: cell biology", "Biology: organisation", "Biology: infection & response", "Biology: bioenergetics", "Biology: homeostasis (basic)", "Biology: inheritance & variation (basic)", "Biology: ecology", "Chemistry: atomic structure (basic)", "Chemistry: bonding & structure", "Chemistry: quantitative chemistry (basic)", "Chemistry: chemical changes", "Chemistry: energy changes", "Chemistry: rates of reaction", "Chemistry: chemical analysis", "Chemistry: atmosphere & resources", "Physics: energy", "Physics: electricity", "Physics: particle model of matter", "Physics: atomic structure (basic)", "Physics: forces", "Physics: waves", "Physics: magnetism"],
+    Edexcel_Higher: ["Biology: key concepts", "Biology: cells & control", "Biology: genetics", "Biology: natural selection & modification", "Biology: health, disease & medicine", "Biology: plant structures & functions", "Biology: animal coordination", "Biology: exchange & transport", "Biology: ecosystems", "Chemistry: key concepts", "Chemistry: states of matter", "Chemistry: chemical changes", "Chemistry: extracting metals & equilibria", "Chemistry: groups in the periodic table", "Chemistry: rates of reaction & energy", "Chemistry: fuels & Earth science", "Physics: key concepts", "Physics: motion & forces", "Physics: conservation of energy", "Physics: waves", "Physics: light & the EM spectrum", "Physics: radioactivity", "Physics: astronomy", "Physics: energy (forces doing work)", "Physics: electricity & circuits", "Physics: magnetism & motor effect", "Physics: electromagnetic induction", "Physics: particle model"],
+    Edexcel_Foundation: ["Biology: key concepts", "Biology: cells & control", "Biology: genetics (basic)", "Biology: natural selection", "Biology: health & disease", "Biology: plant structures", "Biology: animal coordination", "Biology: ecosystems", "Chemistry: key concepts", "Chemistry: states of matter", "Chemistry: chemical changes", "Chemistry: extracting metals", "Chemistry: groups in the periodic table", "Chemistry: rates of reaction", "Chemistry: fuels & Earth science", "Physics: key concepts", "Physics: motion & forces", "Physics: conservation of energy", "Physics: waves", "Physics: light & EM spectrum", "Physics: radioactivity", "Physics: astronomy", "Physics: electricity & circuits", "Physics: magnetism"],
+    OCR_Higher: ["Biology: cell-level systems", "Biology: scaling up", "Biology: organism-level systems", "Biology: community-level systems", "Biology: genes, inheritance & selection", "Biology: global challenges", "Chemistry: particles", "Chemistry: elements, compounds & mixtures", "Chemistry: chemical reactions", "Chemistry: predicting & identifying reactions", "Chemistry: monitoring & controlling reactions", "Chemistry: global challenges (chemistry)", "Physics: matter", "Physics: forces & motion", "Physics: electricity", "Physics: magnetism & EM induction", "Physics: waves in matter", "Physics: radioactivity", "Physics: energy", "Physics: global challenges (physics)"],
+    OCR_Foundation: ["Biology: cell-level systems", "Biology: scaling up", "Biology: organism-level systems", "Biology: community-level systems", "Biology: genes & inheritance (basic)", "Biology: global challenges", "Chemistry: particles", "Chemistry: elements, compounds & mixtures", "Chemistry: chemical reactions", "Chemistry: predicting & identifying reactions", "Chemistry: monitoring reactions", "Chemistry: global challenges (chemistry)", "Physics: matter", "Physics: forces & motion", "Physics: electricity", "Physics: waves in matter", "Physics: radioactivity", "Physics: energy"],
+  },
+  english: {
+    AQA: ["Language P1: fiction reading (AO1-AO4)", "Language P1: creative writing (AO5-AO6)", "Language P2: non-fiction reading (AO1-AO3)", "Language P2: viewpoint writing (AO5-AO6)", "Spoken language endorsement", "Literature: Shakespeare (Macbeth/R&J/Tempest/MND)", "Literature: 19th century novel (ACC/JE/SS/FRK)", "Literature: modern text (AIC/LF/ATDP/P)", "Literature: poetry anthology (Power & Conflict)", "Literature: unseen poetry & comparison", "Analytical writing techniques", "SPaG & sentence structures", "Quotation & evidence embedding", "Comparative writing skills"],
+    Edexcel: ["Language P1: fiction & imaginative reading", "Language P1: transactional writing", "Language P2: non-fiction & literary reading", "Language P2: imaginative & creative writing", "Spoken language endorsement", "Literature: Shakespeare", "Literature: post-1914 British play/novel", "Literature: 19th century novel", "Literature: poetry anthology (Relationships/Conflict)", "Literature: unseen poetry", "Analytical writing techniques", "SPaG & sentence structures", "Quotation & evidence embedding", "Personal response & interpretation"],
+    OCR: ["Language P1: communicating information & ideas", "Language P1: writing to present a viewpoint", "Language P2: reading literary texts", "Language P2: creative & imaginative writing", "Spoken language endorsement", "Literature: Shakespeare", "Literature: modern prose or drama", "Literature: 19th century prose", "Literature: poetry (Love & Relationships)", "Literature: unseen poetry", "Analytical writing techniques", "SPaG & sentence structures", "Audience, purpose & form", "Comparative essay skills"],
+  },
+};
+
+/**
+ * Resolve the topic list for a subject, respecting board/tier overrides
+ * and student customisations.
+ *
+ * Priority: customTopics > BOARD_TIER_TOPICS > SUBJECT_TOPICS
+ */
+export function getDefaultTopics(subjectId, board, tier) {
+  const overrides = BOARD_TIER_TOPICS[subjectId];
+  if (overrides) {
+    if (board && tier && overrides[`${board}_${tier}`]) return overrides[`${board}_${tier}`];
+    if (board && overrides[board]) return overrides[board];
+  }
+  return SUBJECT_TOPICS[subjectId] || [];
+}
+
 /* Derived helpers */
 export const ALL_SUBJECT_IDS   = Object.keys(SUBJECTS);
 export const ALL_SUBJECT_LIST  = Object.values(SUBJECTS);

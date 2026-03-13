@@ -57,12 +57,12 @@ export function clearSubjectMem(mem, sid) {
 }
 export function clearAllMem() { const e = { version: 2, subjects: {} }; saveMemory(e); return e; }
 
-export function exportData(memory, profile) {
-  return { _format: "gcse-tutor-hub", version: 2, exportedAt: new Date().toISOString(), profile, memory };
+export function exportData(memory, profile, customTopics) {
+  return { _format: "gcse-tutor-hub", version: 2, exportedAt: new Date().toISOString(), profile, memory, customTopics };
 }
 export function importData(jsonStr) {
   const d = JSON.parse(jsonStr);
   if (d._format !== "gcse-tutor-hub") throw new Error("Not a GCSE Tutor Hub backup file.");
   if (!d.version || d.version < 2) throw new Error("Backup is from an older version.");
-  return { profile: d.profile, memory: d.memory };
+  return { profile: d.profile, memory: d.memory, customTopics: d.customTopics || {} };
 }
