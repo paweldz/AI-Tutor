@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { saveMemory } from "../utils/storage.js";
 import { saveXP, saveStreaks, recordActivity } from "../utils/xp.js";
-import { saveTopicProgress, saveCustomTopics } from "../utils/topics.js";
+import { saveTopicProgress, saveCustomTopics, saveTeacherNotes } from "../utils/topics.js";
 import { sbSaveXP, sbSaveStreaks, sbSaveSetting } from "../utils/cloudSync.js";
 
 /**
@@ -12,11 +12,12 @@ import { sbSaveXP, sbSaveStreaks, sbSaveSetting } from "../utils/cloudSync.js";
  * Returns { cancelPendingSaves } so switchUser can cancel debounced
  * cloud writes before clearing state (prevents empty-data overwrites).
  */
-export function usePersistence({ memory, xpData, streakData, topicData, customTopics, profile, setStreakData, setStorageFull }) {
+export function usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, profile, setStreakData, setStorageFull }) {
   const xpTimerRef = useRef(null);
   const streakTimerRef = useRef(null);
   const topicTimerRef = useRef(null);
   const customTopicsTimerRef = useRef(null);
+  const teacherNotesTimerRef = useRef(null);
 
   useEffect(() => { saveMemory(memory); }, [memory]);
 
@@ -55,12 +56,21 @@ export function usePersistence({ memory, xpData, streakData, topicData, customTo
     }
   }, [customTopics]);
 
+  useEffect(() => {
+    saveTeacherNotes(teacherNotes);
+    clearTimeout(teacherNotesTimerRef.current);
+    if (teacherNotes && Object.keys(teacherNotes).length > 0) {
+      teacherNotesTimerRef.current = setTimeout(() => sbSaveSetting("teacherNotes", teacherNotes), 2000);
+    }
+  }, [teacherNotes]);
+
   /** Cancel all pending debounced cloud saves (call before switchUser clears state). */
   const cancelPendingSaves = useCallback(() => {
     clearTimeout(xpTimerRef.current);
     clearTimeout(streakTimerRef.current);
     clearTimeout(topicTimerRef.current);
     clearTimeout(customTopicsTimerRef.current);
+    clearTimeout(teacherNotesTimerRef.current);
   }, []);
 
   useEffect(() => {

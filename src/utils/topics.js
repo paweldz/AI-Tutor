@@ -48,6 +48,15 @@ export const CUSTOM_TOPICS_KEY = "gcse_custom_topics_v1";
 export function loadCustomTopics() { return readJSON(studentKey(CUSTOM_TOPICS_KEY), {}); }
 export function saveCustomTopics(data) { writeJSON(studentKey(CUSTOM_TOPICS_KEY), data); }
 
+/* ═══════════════════════════════════════════════════════════════════
+   TEACHER NOTES — dated feedback from real teachers per subject
+   Shape: { [subjectId]: Array<{ id, source, date, expires?, focus?, strengths?, weaknesses?, approach? }> }
+   ═══════════════════════════════════════════════════════════════════ */
+
+export const TEACHER_NOTES_KEY = "gcse_teacher_notes_v1";
+export function loadTeacherNotes() { return readJSON(studentKey(TEACHER_NOTES_KEY), {}); }
+export function saveTeacherNotes(data) { writeJSON(studentKey(TEACHER_NOTES_KEY), data); }
+
 /**
  * Resolve the topic list for a subject.
  * Priority: customTopics > board/tier defaults > generic SUBJECT_TOPICS

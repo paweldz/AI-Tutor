@@ -4,6 +4,7 @@ import { getSessions, addSessionToMem } from "../utils/storage.js";
 import { sbSave, sbSaveSetting } from "../utils/cloudSync.js";
 import { apiSend, apiSummary, buildSystemPrompt, buildApiMsgs } from "../utils/api.js";
 import { recordTopicStudy } from "../utils/topics.js";
+import { buildTeacherNotesPrompt } from "../components/TeacherNotes.jsx";
 import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
 import { createSessionMetrics, recordMessage, recordAssessment, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
 
@@ -13,7 +14,7 @@ import { createSessionMetrics, recordMessage, recordAssessment, formatMetricsFor
  */
 export function useChat({
   active, profile, memory, sessions, setSessions, mats,
-  examMode, voiceMode, convoMode,
+  examMode, voiceMode, convoMode, teacherNotes,
   input, setInput, setMemory, setTopicData, gainXP,
 }) {
   const [loading, setLoading] = useState(false);
@@ -49,7 +50,8 @@ export function useChat({
     const langName = subject?.label || "the target language";
     const voiceNote = convoMode ? `REAL-TIME CONVERSATION MODE: You and the student are in a live spoken conversation. Keep responses very short (1-2 sentences), natural and conversational. ALWAYS end with a question or prompt to keep the dialogue flowing. Use increasingly more ${langName} as the student improves. Be encouraging and energetic.\n\n` : voiceMode ? `VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more ${langName} than usual. If the student's speech has speech-recognition errors, interpret charitably.\n\n` : "";
     const textMats = curMats.filter(m => m.isText);
-    const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
+    const teacherNotesBlock = teacherNotes ? buildTeacherNotesPrompt(teacherNotes, active) : "";
+    const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys + teacherNotesBlock;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
     const onAssessment = (entry) => { metricsRef.current[active] = recordAssessment(getMetrics(active), entry); };
     const toolCtx = { memory, profile, active, onAssessment };

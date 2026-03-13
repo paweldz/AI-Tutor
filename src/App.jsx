@@ -5,7 +5,7 @@ import "./global.css";
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, loadMemory, getSessions, clearSubjectMem, clearAllMem } from "./utils/storage.js";
 import { loadXP, addXP, loadStreaks, recordActivity } from "./utils/xp.js";
-import { loadTopicProgress, loadCustomTopics, saveCustomTopics } from "./utils/topics.js";
+import { loadTopicProgress, loadCustomTopics, saveCustomTopics, loadTeacherNotes, saveTeacherNotes } from "./utils/topics.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 
@@ -43,6 +43,7 @@ export default function App() {
   const [streakData, setStreakData] = useState(loadStreaks);
   const [topicData, setTopicData] = useState(loadTopicProgress);
   const [customTopics, setCustomTopics] = useState(loadCustomTopics);
+  const [teacherNotes, setTeacherNotes] = useState(loadTeacherNotes);
   const [quizSubject, setQuizSubject] = useState(null);
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null);
@@ -76,7 +77,15 @@ export default function App() {
     });
   }
 
-  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData });
+  function handleSaveTeacherNotes(subjectId, notes) {
+    setTeacherNotes(prev => {
+      const updated = { ...prev, [subjectId]: notes };
+      saveTeacherNotes(updated);
+      return updated;
+    });
+  }
+
+  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,
@@ -84,11 +93,11 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, profile, setStreakData, setStorageFull });
+  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, profile, setStreakData, setStorageFull });
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
-    examMode, voiceMode, convoMode,
+    examMode, voiceMode, convoMode, teacherNotes,
     input, setInput, setMemory, setTopicData, gainXP,
   });
   useEffect(() => { sendRef.current = send; });
@@ -154,6 +163,7 @@ export default function App() {
         topicData={topicData} customTopics={customTopics} mats={mats} setMats={setMats} curMats={curMats}
         updateProfile={updateProfile} studyTopic={studyTopic}
         gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics}
+        teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes}
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
       />
 
@@ -162,6 +172,7 @@ export default function App() {
         examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
         msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
         dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
+        teacherNotes={teacherNotes}
         setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
         setQuizSubject={setQuizSubject} setTopicsFor={setTopicsFor}
         setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
