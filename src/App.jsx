@@ -126,6 +126,29 @@ export default function App() {
     });
   }
 
+  function handleSessionAction(type, data) {
+    if (!active || !sendRef.current) return;
+    setTimeout(() => {
+      if (type === "continue") {
+        sendRef.current("I'd like to continue studying: " + data);
+      } else if (type === "strengthen") {
+        sendRef.current("I'm struggling with " + data + ". Can you help me strengthen this topic with practice questions?");
+      } else if (type === "quiz") {
+        const topics = Array.isArray(data) ? data.join(", ") : data;
+        sendRef.current("Quiz me on: " + topics);
+      } else if (type === "continue_session") {
+        const s = data;
+        const topicList = (s.topics || []).join(", ");
+        const weakList = Object.entries(s.confidenceScores || {}).filter(([, v]) => v < 60).map(([t]) => t).join(", ");
+        let msg = "Let's pick up from my session on " + s.date + ".";
+        if (topicList) msg += " We covered: " + topicList + ".";
+        if (weakList) msg += " I was weakest on: " + weakList + ".";
+        msg += " What should we focus on?";
+        sendRef.current(msg);
+      }
+    }, 300);
+  }
+
   const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
 
   // Auth gate: require login when Supabase is configured
@@ -164,6 +187,7 @@ export default function App() {
         updateProfile={updateProfile} studyTopic={studyTopic}
         gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics}
         teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes}
+        onSessionAction={handleSessionAction}
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
       />
 
@@ -172,7 +196,7 @@ export default function App() {
         examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
         msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
         dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
-        teacherNotes={teacherNotes}
+        teacherNotes={teacherNotes} curMem={curMem}
         setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
         setQuizSubject={setQuizSubject} setTopicsFor={setTopicsFor}
         setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
