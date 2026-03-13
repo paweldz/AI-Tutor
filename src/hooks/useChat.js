@@ -5,6 +5,7 @@ import { sbSave, sbSaveSetting } from "../utils/cloudSync.js";
 import { apiSend, apiSummary, buildSystemPrompt, buildApiMsgs } from "../utils/api.js";
 import { recordTopicStudy } from "../utils/topics.js";
 import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
+import { createSessionMetrics, recordMessage, recordAssessment, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
 
 /**
  * Manages the send-message, generate-summary, and auto-save flows.
@@ -20,15 +21,24 @@ export function useChat({
   const [autoSumming, setAutoSumming] = useState(false);
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
+  // Per-subject session metrics (assessments, active time)
+  const metricsRef = useRef({});
 
   const subject = active ? SUBJECTS[active] : null;
   const curMats = active ? (mats[active] || []) : [];
   const curMem = active ? getSessions(memory, active) : [];
   const msgs = active ? (sessions[active]?.messages || []) : [];
 
+  function getMetrics(sid) {
+    if (!metricsRef.current[sid]) metricsRef.current[sid] = createSessionMetrics();
+    return metricsRef.current[sid];
+  }
+
   async function send(override) {
     const text = override || input.trim();
     if (!text || loading || !active || !profile) return;
+    // Track active time on each user message
+    metricsRef.current[active] = recordMessage(getMetrics(active));
     const userMsg = { role: "user", content: text };
     const latest = sessionsRef.current[active]?.messages || [];
     const updated = [...latest, userMsg];
@@ -41,7 +51,8 @@ export function useChat({
     const textMats = curMats.filter(m => m.isText);
     const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
-    const toolCtx = { memory, profile, active };
+    const onAssessment = (entry) => { metricsRef.current[active] = recordAssessment(getMetrics(active), entry); };
+    const toolCtx = { memory, profile, active, onAssessment };
     const onToolUse = (name, input) => executeTool(name, input, toolCtx);
     try {
       const reply = await apiSend(fullSys, apiMsgs, 1200, { tools: TUTOR_TOOLS, onToolUse });
@@ -57,7 +68,8 @@ export function useChat({
     setSumLoading(true);
     try {
       const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active]);
-      const data = await apiSummary(sys, msgs);
+      const metricsBlock = formatMetricsForPrompt(getMetrics(active));
+      const data = await apiSummary(sys, msgs, metricsBlock);
       setMemory(prev => addSessionToMem(prev, active, data));
       sbSave(active, data.date, JSON.stringify(data));
       gainXP(25, "Session summary");
@@ -80,11 +92,22 @@ export function useChat({
     setAutoSumming(true);
     try {
       const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid]);
-      const data = await apiSummary(sys, chatMsgs);
+      const metricsBlock = formatMetricsForPrompt(getMetrics(sid));
+      const data = await apiSummary(sys, chatMsgs, metricsBlock);
       setMemory(prev => addSessionToMem(prev, sid, data));
       sbSave(sid, data.date, JSON.stringify(data));
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }
 
-  return { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef };
+  /** Reset metrics when switching subjects (called externally) */
+  function resetMetrics(sid) {
+    if (sid) delete metricsRef.current[sid];
+  }
+
+  /** Get current metrics for display (e.g. SummaryModal) */
+  function getSessionMetrics(sid) {
+    return getMetrics(sid || active);
+  }
+
+  return { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics };
 }

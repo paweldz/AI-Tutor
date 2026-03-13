@@ -72,7 +72,7 @@ export default function App() {
 
   const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, profile, setStreakData, setStorageFull });
 
-  const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef } = useChat({
+  const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
     examMode, voiceMode, convoMode,
     input, setInput, setMemory, setTopicData, gainXP,
