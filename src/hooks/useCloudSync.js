@@ -18,10 +18,20 @@ import { supabase } from "../lib/supabase.js";
  */
 export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setXpData, setStreakData }) {
   const sbSyncedRef = useRef(false);
+  const lastUserIdRef = useRef(null);
   const [dbConnected, setDbConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
+    const currentUserId = user?.id ?? null;
+
+    // When the user identity changes (login, logout, or switch), reset
+    // the sync flag so the next login triggers a fresh cloud load.
+    if (currentUserId !== lastUserIdRef.current) {
+      sbSyncedRef.current = false;
+      lastUserIdRef.current = currentUserId;
+    }
+
     const trigger = user || profile;
     if (!trigger || sbSyncedRef.current) return;
     sbSyncedRef.current = true;
@@ -127,6 +137,7 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
 
   function resetSync() {
     sbSyncedRef.current = false;
+    lastUserIdRef.current = null;
     setDbConnected(false);
     setSyncing(false);
   }
