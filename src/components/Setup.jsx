@@ -3,8 +3,8 @@ import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subj
 import s from "./Setup.module.css";
 
 export function Setup({ onDone }) {
-  const [phase, setPhase] = useState("name");
-  const [p, setP] = useState({ name: "", year: "", tier: "", examBoards: {}, subjects: [], tutorCharacters: {} });
+  const [phase, setPhase] = useState("role");
+  const [p, setP] = useState({ name: "", role: "student", year: "", tier: "", examBoards: {}, subjects: [], tutorCharacters: {} });
   const [boardIdx, setBoardIdx] = useState(0);
   const upd = (f, v) => setP(x => ({ ...x, [f]: v }));
   const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(si => si !== id) : [...x.subjects, id] }));
@@ -12,6 +12,10 @@ export function Setup({ onDone }) {
   function afterName() {
     const name = p.name.trim();
     if (!name) return;
+    if (p.role === "parent") {
+      onDone({ name, role: "parent", children: [] });
+      return;
+    }
     setPhase("year");
   }
 
@@ -31,14 +35,36 @@ export function Setup({ onDone }) {
     </div>
   );
 
-  if (phase === "name") return wrap(<>
+  if (phase === "role") return wrap(<>
     <div className={s.tag}>WELCOME</div>
-    <h2 className={s.heading}>What's your name?</h2>
-    <p className={s.subtitle}>Your tutors will use this throughout your sessions</p>
-    <input autoFocus value={p.name} onChange={e => upd("name", e.target.value)} onKeyDown={e => e.key === "Enter" && afterName()} placeholder="Enter your first name..." className={s.nameInput} />
-    <button className={`hb ${p.name.trim() ? s.btnActive : s.btnDisabled}`} onClick={afterName} disabled={!p.name.trim()}>
+    <h2 className={s.heading}>Who are you?</h2>
+    <p className={s.subtitle}>This determines your experience in the app</p>
+    <div className={s.optionRow}>
+      <div className={`so ${p.role === "student" ? s.optionOn : s.optionOff}`} onClick={() => upd("role", "student")}>
+        <div style={{ fontSize: 28, marginBottom: 6 }}>{"\ud83c\udf93"}</div>
+        <div>Student</div>
+      </div>
+      <div className={`so ${p.role === "parent" ? s.optionOn : s.optionOff}`} onClick={() => upd("role", "parent")}>
+        <div style={{ fontSize: 28, marginBottom: 6 }}>{"\ud83d\udc68\u200d\ud83d\udc67"}</div>
+        <div>Parent</div>
+      </div>
+    </div>
+    <button className={`hb ${s.btnActive}`} onClick={() => setPhase("name")}>
       Continue {"\u2192"}
     </button>
+  </>);
+
+  if (phase === "name") return wrap(<>
+    <div className={s.tag}>{p.role === "parent" ? "PARENT SETUP" : "WELCOME"}</div>
+    <h2 className={s.heading}>What's your name?</h2>
+    <p className={s.subtitle}>{p.role === "parent" ? "We'll use this on your parent dashboard" : "Your tutors will use this throughout your sessions"}</p>
+    <input autoFocus value={p.name} onChange={e => upd("name", e.target.value)} onKeyDown={e => e.key === "Enter" && afterName()} placeholder={p.role === "parent" ? "Enter your name..." : "Enter your first name..."} className={s.nameInput} />
+    <button className={`hb ${p.name.trim() ? s.btnActive : s.btnDisabled}`} onClick={afterName} disabled={!p.name.trim()}>
+      {p.role === "parent" ? "Set Up Dashboard \u2192" : "Continue \u2192"}
+    </button>
+    <div style={{ textAlign: "center", marginTop: 12 }}>
+      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer" }} onClick={() => setPhase("role")}>{"\u2190"} Back</span>
+    </div>
   </>);
 
   if (phase === "year") return wrap(<>

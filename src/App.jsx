@@ -24,6 +24,10 @@ import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 import { StorageFullBanner, ModalLayer } from "./components/ModalLayer.jsx";
 import { DashboardPage } from "./components/DashboardPage.jsx";
+import { ParentHome } from "./components/ParentHome.jsx";
+import { ParentChildView } from "./components/ParentChildView.jsx";
+import { LinkChildModal } from "./components/LinkChildModal.jsx";
+import { ChildLinkBanner } from "./components/ChildLinkBanner.jsx";
 
 migrateIfNeeded();
 { const p = readJSON("gcse_profile_v2"); if (p?.name) setActiveStudent(p.name); }
@@ -49,6 +53,8 @@ export default function App() {
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null);
   const [storageFull, setStorageFull] = useState(false);
+  const [viewingChild, setViewingChild] = useState(null);
+  const [showLinkChild, setShowLinkChild] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sendRef = useRef(null);
@@ -181,6 +187,48 @@ export default function App() {
 
   if (!profile) return <Setup onDone={updateProfile} />;
 
+  const isParent = profile.role === "parent";
+
+  // ── Parent view: child detail or parent home ──
+  if (isParent && viewingChild) {
+    return (
+      <ErrorBoundary>
+        <ParentChildView child={viewingChild} onBack={() => setViewingChild(null)} />
+      </ErrorBoundary>
+    );
+  }
+
+  if (isParent) {
+    return (
+      <ErrorBoundary>
+        <div style={{ minHeight: "100vh", background: "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif" }}>
+          {/* Parent header */}
+          <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase" }}>{profile.name} {"\u00b7"} Parent</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>Parent Dashboard</div>
+            </div>
+            <div style={{ display: "flex", gap: 5 }}>
+              {dbConnected && <div style={{ padding: "6px 10px", borderRadius: 20, background: "#1a1a2e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>{"\u2601\ufe0f"} Synced</div>}
+              <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\u2699\ufe0f"}</button>
+              <button className="btn" onClick={switchUser} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc64"}</button>
+            </div>
+          </div>
+
+          {modal === "settings" && <ModalLayer modal={modal} setModal={setModal} active={null} subject={null} showSum={null} setShowSum={setShowSum} quizSubject={null} setQuizSubject={setQuizSubject} topicsFor={null} setTopicsFor={setTopicsFor} buildQuizFor={null} setBuildQuizFor={setBuildQuizFor} memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile} topicData={topicData} customTopics={customTopics} mats={mats} setMats={setMats} curMats={[]} updateProfile={updateProfile} studyTopic={studyTopic} gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics} teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes} studentNotes={studentNotes} onSaveStudentNotes={handleSaveStudentNotes} onSessionAction={handleSessionAction} clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem} />}
+          {showLinkChild && <LinkChildModal onClose={() => setShowLinkChild(false)} onLinked={() => {}} />}
+
+          <ParentHome
+            profile={profile}
+            onLinkChild={() => setShowLinkChild(true)}
+            onViewChild={child => setViewingChild(child)}
+            switchUser={switchUser}
+          />
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
   const mainView = (
     <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
       {storageFull && <StorageFullBanner onDismiss={() => setStorageFull(false)} />}
@@ -215,12 +263,15 @@ export default function App() {
       />
 
       {!active ? (
-        <HomeScreen
-          profile={profile} memory={memory} mats={mats} xpData={xpData}
-          streakData={streakData} topicData={topicData} customTopics={customTopics} totalMem={totalMem}
-          onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
-          onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
-        />
+        <>
+          <ChildLinkBanner />
+          <HomeScreen
+            profile={profile} memory={memory} mats={mats} xpData={xpData}
+            streakData={streakData} topicData={topicData} customTopics={customTopics} totalMem={totalMem}
+            onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
+            onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
+          />
+        </>
       ) : (
         <ChatView
           subject={subject} msgs={msgs} loading={loading} input={input} setInput={setInput}
