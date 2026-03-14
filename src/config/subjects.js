@@ -61,27 +61,6 @@ export const SUBJECTS = {
     quickPrompts: stdQuickPrompts,
   },
 
-  german: {
-    id: "german", label: "German", emoji: "\ud83c\udde9\ud83c\uddea",
-    tutor: { name: "Herr Schmidt" },
-    color: "#8a6b1a", gradient: "linear-gradient(135deg,#8a6b1a,#c89e2a)", bg: "#fdfaf3",
-    description: "Conversation, grammar & vocabulary",
-    voice: { enabled: true, lang: "de-DE", ttsVoice: "nova" },
-    welcomeMessage(p, board, memCount) {
-      const b = board ? ` ${board} German.` : "";
-      const m = memCount > 0 ? `\n\n\ud83e\udde0 Memory loaded: ${memCount} past session${memCount > 1 ? "s" : ""}.` : "";
-      return `Hallo ${p.name}! I'm Herr Schmidt.${b}${m}\n\nWas machen wir heute?\n\n\ud83c\udf99\ufe0f Tap "Voice" to practise speaking!`;
-    },
-    systemPromptSpecific(board, tier) {
-      let s = "\nGERMAN: Mix English/German, increase German as confidence grows. Pay special attention to cases (nom/acc/dat/gen) and word order. Correct gently.";
-      if (board === "AQA") s += " AQA: 3 themes, 4 skills.";
-      else if (board === "Edexcel") s += " Edexcel: translation + photo card.";
-      s += tier === "Higher" ? " Higher: subordinate clauses, passive, subjunctive." : " Foundation: present/past/future, core vocab.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
   math: {
     id: "math", label: "Maths", emoji: "\ud83d\udcd0",
     tutor: { name: "Mr. Chen" },
@@ -127,6 +106,57 @@ export const SUBJECTS = {
       else if (board === "Edexcel") s += " Edexcel: Core Practicals examined.";
       else if (board === "OCR") s += " OCR: Gateway or 21C spec.";
       s += tier === "Higher" ? " Higher: complex maths, mechanisms, organic chem." : " Foundation: concepts over derivation.";
+      return s;
+    },
+    quickPrompts: stdQuickPrompts,
+  },
+
+  biology: {
+    id: "biology", label: "Biology", emoji: "\ud83e\uddec",
+    tutor: { name: "Dr. Okafor" },
+    color: "#16a34a", gradient: "linear-gradient(135deg,#15803d,#22c55e)", bg: "#f0fdf4",
+    description: "Cells, organisms, genetics & ecology",
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Okafor", p, board, memCount, "Cells, genetics, ecology \u2014 what shall we tackle?"); },
+    systemPromptSpecific(board, tier) {
+      let s = "\nBIOLOGY (Triple): Use diagrams and analogies. Flag required practicals. Show every calculation step. Teach 6-mark extended response structure.";
+      if (board === "AQA") s += " AQA: 2 papers, 10 topics. Required practicals examined.";
+      else if (board === "Edexcel") s += " Edexcel: 2 papers, 9 topic areas. Core practicals.";
+      else if (board === "OCR") s += " OCR: Gateway or 21C, 7 modules.";
+      s += tier === "Higher" ? " Higher: complex mechanisms, homeostasis detail, monoclonal antibodies, brain & eye." : " Foundation: core concepts, simplified mechanisms.";
+      return s;
+    },
+    quickPrompts: stdQuickPrompts,
+  },
+
+  chemistry: {
+    id: "chemistry", label: "Chemistry", emoji: "\u2697\ufe0f",
+    tutor: { name: "Dr. Kapoor" },
+    color: "#0891b2", gradient: "linear-gradient(135deg,#0e7490,#22d3ee)", bg: "#ecfeff",
+    description: "Atoms, reactions, organic & analysis",
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Kapoor", p, board, memCount, "Bonding, reactions, organic chemistry \u2014 where shall we start?"); },
+    systemPromptSpecific(board, tier) {
+      let s = "\nCHEMISTRY (Triple): Balance equations in every answer. Use particle diagrams. Flag required practicals. Show moles calculations step by step.";
+      if (board === "AQA") s += " AQA: 2 papers, 10 topics. ~20% maths content.";
+      else if (board === "Edexcel") s += " Edexcel: 2 papers, 9 topic areas. Core practicals.";
+      else if (board === "OCR") s += " OCR: Gateway or 21C, breadth + depth papers.";
+      s += tier === "Higher" ? " Higher: titration calcs, Haber process equilibrium, organic mechanisms, nanoparticles." : " Foundation: core reactions, simple calculations, key concepts.";
+      return s;
+    },
+    quickPrompts: stdQuickPrompts,
+  },
+
+  physics: {
+    id: "physics", label: "Physics", emoji: "\u269b\ufe0f",
+    tutor: { name: "Professor Newton" },
+    color: "#4f46e5", gradient: "linear-gradient(135deg,#4338ca,#6366f1)", bg: "#eef2ff",
+    description: "Forces, energy, waves, electricity & space",
+    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Professor Newton", p, board, memCount, "Forces, energy, electricity, waves \u2014 what shall we work on?"); },
+    systemPromptSpecific(board, tier) {
+      let s = "\nPHYSICS (Triple): Show every calculation with units. Use SUVAT where appropriate. Draw force diagrams. Flag required practicals. Teach equation recall and rearrangement.";
+      if (board === "AQA") s += " AQA: 2 papers, 8 topics. ~40% maths, equation sheet provided for some.";
+      else if (board === "Edexcel") s += " Edexcel: 2 papers, core practicals, ~40% maths.";
+      else if (board === "OCR") s += " OCR: Gateway or 21C, practical skills embedded.";
+      s += tier === "Higher" ? " Higher: moments, pressure in fluids, EM induction, space physics, momentum." : " Foundation: core equations, basic circuits, forces & energy.";
       return s;
     },
     quickPrompts: stdQuickPrompts,
@@ -195,161 +225,6 @@ export const SUBJECTS = {
     quickPrompts: stdQuickPrompts,
   },
 
-  business: {
-    id: "business", label: "Business Studies", emoji: "\ud83d\udcbc",
-    tutor: { name: "Mr. Osei" },
-    color: "#1a5a3a", gradient: "linear-gradient(135deg,#1a5a3a,#2e8b57)", bg: "#f3fdf7",
-    description: "Enterprise, marketing, finance & operations",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Osei", p, board, memCount, "Marketing, finance, operations, or HR today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nBUSINESS: Use real company examples. Practice applying theory to case studies. Teach calculation methods (GP%, NP%, ARR). Push for evaluation in every answer.";
-      if (board === "AQA") s += " AQA: 2 papers, business in the real world + influences.";
-      else if (board === "Edexcel") s += " Edexcel: Theme 1 small business, Theme 2 building a business.";
-      else if (board === "OCR") s += " OCR: Business Activity, Marketing, People, Finance, Operations.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  art: {
-    id: "art", label: "Art & Design", emoji: "\ud83c\udfa8",
-    tutor: { name: "Ms. Fontaine" },
-    color: "#c44569", gradient: "linear-gradient(135deg,#c44569,#e8608a)", bg: "#fdf3f6",
-    description: "Fine art, graphics & photography",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Fontaine", p, board, memCount, "Shall we work on your portfolio, explore artists, or practise techniques?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nART & DESIGN: Focus on annotation and critical analysis. Guide formal elements vocabulary. Help with artist research and comparisons. Coach exam preparation and time management for the externally set assignment.";
-      if (board === "AQA") s += " AQA: Portfolio (60%) + Externally Set Assignment (40%).";
-      else if (board === "Edexcel") s += " Edexcel: Personal Portfolio + Externally Set Assignment.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  music: {
-    id: "music", label: "Music", emoji: "\ud83c\udfb5",
-    tutor: { name: "Mr. Abara" },
-    color: "#8a1a5a", gradient: "linear-gradient(135deg,#8a1a5a,#c2185b)", bg: "#fdf3f8",
-    description: "Performance, composition & listening",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Abara", p, board, memCount, "Performance, composition, or listening practice?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nMUSIC: Use correct musical terminology (texture, timbre, dynamics, tempo). Help with set work analysis. Guide composition techniques. Practice listening question technique.";
-      if (board === "AQA") s += " AQA: Understanding Music, Performing, Composing. Set works across 4 areas.";
-      else if (board === "Edexcel") s += " Edexcel: 8 set works across 4 areas of study.";
-      else if (board === "OCR") s += " OCR: Integrated portfolio approach.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  drama: {
-    id: "drama", label: "Drama", emoji: "\ud83c\udfad",
-    tutor: { name: "Ms. Park" },
-    color: "#c44500", gradient: "linear-gradient(135deg,#c44500,#e06520)", bg: "#fdf5f0",
-    description: "Performance, devising & written exam",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Park", p, board, memCount, "Performance skills, set text, or devising today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nDRAMA: Use correct drama terminology (proxemics, semiotics, Brechtian, naturalism). Help with set text analysis. Coach performance evaluation writing. Guide devising logs.";
-      if (board === "AQA") s += " AQA: Understanding Drama, Devising Drama, Texts in Practice.";
-      else if (board === "Edexcel") s += " Edexcel: Devising, Performance from text, Theatre Makers in Practice.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  dt: {
-    id: "dt", label: "Design & Technology", emoji: "\u2699\ufe0f",
-    tutor: { name: "Mr. Novak" },
-    color: "#5a5a1a", gradient: "linear-gradient(135deg,#5a5a1a,#8a8a2a)", bg: "#fdfdf3",
-    description: "Materials, systems & design principles",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Mr. Novak", p, board, memCount, "Design theory, materials, or your NEA today?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nDESIGN & TECHNOLOGY: Cover materials (timber, metals, polymers, textiles), manufacturing processes, design principles, and environmental impact. Help with iterative design and NEA structure.";
-      if (board === "AQA") s += " AQA: Core technical + specialist + designing & making principles.";
-      else if (board === "Edexcel") s += " Edexcel: Core + specialist knowledge, maths in DT.";
-      else if (board === "OCR") s += " OCR: Principles of DT, iterative design.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  pe: {
-    id: "pe", label: "PE", emoji: "\u26bd",
-    tutor: { name: "Coach Thompson" },
-    color: "#1a7a3a", gradient: "linear-gradient(135deg,#1a7a3a,#2ecc71)", bg: "#f3fdf5",
-    description: "Anatomy, training & sport psychology",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Coach Thompson", p, board, memCount, "Anatomy, training principles, or sport psychology?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nPE: Cover anatomy & physiology, movement analysis, physical training, sport psychology, socio-cultural influences, and health. Use sport-specific examples. Help with data analysis questions.";
-      if (board === "AQA") s += " AQA: 2 papers + practical performance + analysis.";
-      else if (board === "Edexcel") s += " Edexcel: Fitness and Body Systems, Health and Performance.";
-      else if (board === "OCR") s += " OCR: Physical Factors, Socio-cultural Issues, NEA.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  psychology: {
-    id: "psychology", label: "Psychology", emoji: "\ud83e\udde0",
-    tutor: { name: "Dr. Lewin" },
-    color: "#4a1a7a", gradient: "linear-gradient(135deg,#4a1a7a,#7e57c2)", bg: "#f7f3fd",
-    description: "Research methods, memory & development",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Lewin", p, board, memCount, "Which topic area shall we explore?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nPSYCHOLOGY: Reference key studies by name. Practice research methods terminology. Evaluate using strengths/weaknesses format. Teach AO1 (knowledge) vs AO2 (application) vs AO3 (evaluation).";
-      if (board === "AQA") s += " AQA: Cognition & Behaviour, Social Context, Research Methods.";
-      else if (board === "Edexcel") s += " Edexcel: 2 papers, clinical + developmental + social + cognitive.";
-      else if (board === "OCR") s += " OCR: Criminal, Developmental, Psychological Problems, Social Influence.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  economics: {
-    id: "economics", label: "Economics", emoji: "\ud83d\udcb0",
-    tutor: { name: "Ms. Chang" },
-    color: "#2a6a4a", gradient: "linear-gradient(135deg,#2a6a4a,#3da06a)", bg: "#f3fdf8",
-    description: "Micro, macro & international trade",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Ms. Chang", p, board, memCount, "Microeconomics, macroeconomics, or something specific?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nECONOMICS: Use supply/demand diagrams mentally. Teach chains of reasoning. Push for real-world examples. Practice data response and extended writing.";
-      if (board === "Edexcel") s += " Edexcel: Theme 1 micro, Theme 2 macro.";
-      else if (board === "OCR") s += " OCR: Introduction to Economics, National & International.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  sociology: {
-    id: "sociology", label: "Sociology", emoji: "\ud83c\udfe0",
-    tutor: { name: "Dr. Morris" },
-    color: "#6b1a3a", gradient: "linear-gradient(135deg,#6b1a3a,#a02255)", bg: "#fdf3f6",
-    description: "Families, education, crime & theory",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Morris", p, board, memCount, "Which topic \u2014 families, education, crime, or theory?"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nSOCIOLOGY: Reference key sociologists by name. Use correct terminology (functionalism, Marxism, feminism, interactionism). Practice for evidence + evaluation. Link theory to contemporary examples.";
-      if (board === "AQA") s += " AQA: Education, Families, Crime & Deviance, Stratification.";
-      else if (board === "OCR") s += " OCR: Socialisation, Culture & Identity + 2 options.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
-  latin: {
-    id: "latin", label: "Latin", emoji: "\ud83c\udfdb",
-    tutor: { name: "Dr. Varro" },
-    color: "#5a3a1a", gradient: "linear-gradient(135deg,#5a3a1a,#8b6914)", bg: "#fdf9f3",
-    description: "Translation, grammar & civilisation",
-    welcomeMessage(p, board, memCount) { return buildWelcomeMessage("Dr. Varro", p, board, memCount, "Grammar, translation, or civilisation today? Salve!"); },
-    systemPromptSpecific(board, tier) {
-      let s = "\nLATIN: Practice translation both ways. Drill declensions and conjugations systematically. Use etymology to make vocab memorable. Cover set texts and civilisation content.";
-      if (board === "OCR") s += " OCR: 3 components \u2014 Language, Prose Literature, Civilisation/Verse.";
-      else if (board === "WJEC") s += " WJEC/Eduqas: Latin Language + Literature.";
-      return s;
-    },
-    quickPrompts: stdQuickPrompts,
-  },
-
   astronomy: {
     id: "astronomy", label: "Astronomy", emoji: "\ud83d\udd2d",
     tutor: { name: "Dr. Starling" },
@@ -372,24 +247,16 @@ export const SUBJECTS = {
 export const SUBJECT_TOPICS = {
   spanish: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Speaking skills", "Writing skills", "Listening skills", "Reading comprehension", "Translation skills"],
   french: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Speaking skills", "Writing skills", "Listening skills", "Reading comprehension", "Translation skills"],
-  german: ["Family & relationships", "Free time & hobbies", "School & education", "Future plans & work", "Town & local area", "Social issues & charity", "Healthy living", "Holidays & travel", "Environment", "Technology & media", "Grammar: present tense", "Grammar: past tenses", "Grammar: future & conditional", "Grammar: cases & word order", "Speaking skills", "Writing skills", "Listening skills", "Translation skills"],
   math: ["Number: fractions, decimals, percentages", "Number: indices & surds", "Algebra: expressions & equations", "Algebra: graphs & functions", "Algebra: sequences", "Algebra: inequalities", "Ratio & proportion", "Geometry: angles & shapes", "Geometry: area & volume", "Geometry: transformations", "Geometry: circle theorems", "Geometry: vectors", "Trigonometry", "Probability", "Statistics: averages & spread", "Statistics: charts & diagrams"],
   english: ["Language Paper 1: fiction reading", "Language Paper 1: creative writing", "Language Paper 2: non-fiction reading", "Language Paper 2: viewpoint writing", "Spoken language assessment", "Literature: Shakespeare", "Literature: 19th century novel", "Literature: modern text", "Literature: poetry anthology", "Literature: unseen poetry", "Analytical writing techniques", "Spelling, punctuation & grammar", "Quotation & evidence skills", "Comparative writing"],
   science: ["Biology: cell biology", "Biology: organisation", "Biology: infection & disease", "Biology: bioenergetics", "Biology: homeostasis", "Biology: inheritance & variation", "Biology: ecology", "Chemistry: atomic structure", "Chemistry: bonding & structure", "Chemistry: quantitative chemistry", "Chemistry: chemical changes", "Chemistry: energy changes", "Chemistry: rates & equilibrium", "Chemistry: organic chemistry", "Chemistry: chemical analysis", "Chemistry: atmosphere & resources", "Physics: energy", "Physics: electricity", "Physics: particle model", "Physics: atomic structure", "Physics: forces", "Physics: waves", "Physics: magnetism", "Physics: space"],
+  biology: ["Cell biology", "Cell division & mitosis", "Transport in cells", "Organisation & organ systems", "Digestive system & enzymes", "Heart & blood vessels", "Plant tissues & organs", "Communicable diseases", "Human defence systems", "Vaccination & antibiotics", "Monoclonal antibodies", "Plant disease", "Photosynthesis", "Respiration", "Homeostasis & response", "Nervous system", "Hormonal coordination", "Reproduction", "Variation & evolution", "Genetics & inheritance", "Classification", "Ecosystems", "Biodiversity", "Required practicals"],
+  chemistry: ["Atomic structure & periodic table", "Electronic structure", "Development of the periodic table", "Group 1, 7 & 0", "Bonding: ionic", "Bonding: covalent & metallic", "Properties of structures", "Quantitative chemistry & moles", "Equations & calculations", "Chemical changes & electrolysis", "Reactivity series & extraction", "Acids, bases & salts", "Energy changes & bond energies", "Rates of reaction", "Reversible reactions & equilibrium", "Crude oil & hydrocarbons", "Organic reactions", "Polymers", "Chemical analysis & chromatography", "Identification of ions", "Earth's atmosphere", "Using Earth's resources", "Sustainable development", "Required practicals"],
+  physics: ["Energy stores & transfers", "Energy efficiency & resources", "Electrical circuits", "Series & parallel circuits", "Mains electricity & power", "Energy transfers in circuits", "Density & states of matter", "Internal energy & specific heat", "Pressure in fluids", "Atomic structure & radiation", "Nuclear decay & half-life", "Hazards & uses of radiation", "Forces & Newton's laws", "Resultant forces", "Momentum", "Stopping distances", "Waves: properties", "Electromagnetic spectrum", "Lenses & visible light", "Sound waves", "Magnetic fields & electromagnets", "The motor effect", "Electromagnetic induction", "Space physics", "Required practicals"],
   history: ["Medicine through time", "Crime & punishment", "Warfare & British society", "Elizabethan England", "Norman England", "American West", "Weimar & Nazi Germany", "Cold War", "Vietnam War", "Source analysis skills", "Extended writing skills", "Historical interpretations"],
   geography: ["Natural hazards", "Weather hazards & climate change", "Ecosystems & tropical rainforests", "Hot deserts", "Cold environments", "River landscapes", "Coastal landscapes", "Urban issues & challenges", "Changing economic world", "Resource management", "Energy", "Water & food", "Fieldwork skills", "Map skills & data interpretation"],
   computer_science: ["Computational thinking", "Algorithms: searching & sorting", "Programming fundamentals", "Data types & structures", "Boolean logic", "Systems architecture", "Memory & storage", "Networks & protocols", "Network security", "Databases & SQL", "Ethical & legal issues", "Software development lifecycle"],
   religious_studies: ["Christian beliefs & teachings", "Christian practices", "Islam: beliefs & teachings", "Islam: practices", "Relationships & families", "Religion & life", "Peace & conflict", "Crime & punishment", "Human rights", "Philosophical arguments for God", "Revelation & religious experience", "Evaluation & argument skills"],
-  business: ["Enterprise & entrepreneurship", "Spotting a business opportunity", "Marketing mix", "Business finance", "Human resources", "Business operations", "Business growth", "Globalisation", "Ethics & environment", "Economic climate", "Cash flow & break-even", "Business plans"],
-  art: ["Drawing & mark-making", "Painting techniques", "Printmaking", "3D & sculpture", "Photography & digital", "Artist research & analysis", "Formal elements", "Annotation skills", "Personal portfolio", "Externally set assignment", "Contextual understanding", "Creative development"],
-  music: ["Rhythm & metre", "Melody & harmony", "Texture & structure", "Timbre & dynamics", "Set work analysis", "Musical dictation", "Composition techniques", "Performance skills", "Music technology", "World music traditions", "Popular music styles", "Classical traditions"],
-  drama: ["Theatrical skills & techniques", "Devising theatre", "Performing from text", "Set text study", "Stage design & lighting", "Costume & makeup", "Evaluation & analysis", "Practitioners: Brecht", "Practitioners: Stanislavski", "Physical theatre", "Script interpretation", "Live theatre review"],
-  dt: ["Core technical principles", "Specialist technical principles", "Materials: timber", "Materials: metals & alloys", "Materials: polymers", "Materials: textiles", "Manufacturing processes", "Design principles", "Environmental impact", "Systems & electronics", "Iterative design process", "NEA project skills"],
-  pe: ["Skeletal system", "Muscular system", "Cardiovascular system", "Respiratory system", "Movement analysis", "Components of fitness", "Training methods & principles", "Injury prevention", "Sport psychology", "Socio-cultural influences", "Health & wellbeing", "Data analysis in sport"],
-  psychology: ["Memory", "Perception", "Development", "Research methods", "Social influence", "Language, thought & communication", "Brain & neuropsychology", "Psychological problems", "Criminal psychology", "Sleep & dreaming", "Ethical issues", "Data handling & statistics"],
-  economics: ["Supply & demand", "Price determination", "Market failure", "Government intervention", "Types of economy", "GDP & economic growth", "Unemployment & inflation", "Fiscal policy", "Monetary policy", "International trade", "Exchange rates", "Development economics"],
-  sociology: ["Socialisation & culture", "Social structures & stratification", "Families & households", "Education", "Crime & deviance", "Social research methods", "Media", "Power & politics", "Functionalism", "Marxism", "Feminism", "Interactionism"],
-  latin: ["Nouns: all declensions", "Verbs: present system", "Verbs: perfect system", "Adjectives & adverbs", "Pronouns & prepositions", "Subordinate clauses", "Indirect statement", "Participles & ablative absolute", "Translation: Latin to English", "Translation: English to Latin", "Prose literature set text", "Civilisation & Roman life"],
   astronomy: ["Earth, Moon & Sun", "The solar system", "Lenses & telescopes", "Electromagnetic spectrum", "Stellar evolution", "HR diagrams", "Galaxies & cosmology", "The Big Bang", "Observational techniques", "Space exploration", "Gravity & orbits", "Astrophotography & data"],
 };
 
@@ -416,6 +283,24 @@ export const BOARD_TIER_TOPICS = {
     Edexcel_Foundation: ["Biology: key concepts", "Biology: cells & control", "Biology: genetics (basic)", "Biology: natural selection", "Biology: health & disease", "Biology: plant structures", "Biology: animal coordination", "Biology: ecosystems", "Chemistry: key concepts", "Chemistry: states of matter", "Chemistry: chemical changes", "Chemistry: extracting metals", "Chemistry: groups in the periodic table", "Chemistry: rates of reaction", "Chemistry: fuels & Earth science", "Physics: key concepts", "Physics: motion & forces", "Physics: conservation of energy", "Physics: waves", "Physics: light & EM spectrum", "Physics: radioactivity", "Physics: astronomy", "Physics: electricity & circuits", "Physics: magnetism"],
     OCR_Higher: ["Biology: cell-level systems", "Biology: scaling up", "Biology: organism-level systems", "Biology: community-level systems", "Biology: genes, inheritance & selection", "Biology: global challenges", "Chemistry: particles", "Chemistry: elements, compounds & mixtures", "Chemistry: chemical reactions", "Chemistry: predicting & identifying reactions", "Chemistry: monitoring & controlling reactions", "Chemistry: global challenges (chemistry)", "Physics: matter", "Physics: forces & motion", "Physics: electricity", "Physics: magnetism & EM induction", "Physics: waves in matter", "Physics: radioactivity", "Physics: energy", "Physics: global challenges (physics)"],
     OCR_Foundation: ["Biology: cell-level systems", "Biology: scaling up", "Biology: organism-level systems", "Biology: community-level systems", "Biology: genes & inheritance (basic)", "Biology: global challenges", "Chemistry: particles", "Chemistry: elements, compounds & mixtures", "Chemistry: chemical reactions", "Chemistry: predicting & identifying reactions", "Chemistry: monitoring reactions", "Chemistry: global challenges (chemistry)", "Physics: matter", "Physics: forces & motion", "Physics: electricity", "Physics: waves in matter", "Physics: radioactivity", "Physics: energy"],
+  },
+  biology: {
+    AQA_Higher: ["Cell biology", "Cell division & mitosis", "Transport in cells", "Organisation & organ systems", "Digestive system & enzymes", "Heart, blood & blood vessels", "Plant tissues & organs", "Communicable diseases", "Human defence systems", "Vaccination & antibiotics", "Monoclonal antibodies", "Plant disease", "Photosynthesis", "Respiration (aerobic & anaerobic)", "Homeostasis & response", "Nervous system & reflex arcs", "Hormonal coordination", "Contraception & fertility", "Reproduction (sexual & asexual)", "DNA, genes & the genome", "Variation & evolution", "Genetics & inheritance (inc. Punnett squares)", "Speciation & classification", "Ecosystems & biodiversity", "Trophic levels & biomass", "Required practicals"],
+    AQA_Foundation: ["Cell biology", "Cell division (basic)", "Transport in cells", "Organisation & organ systems", "Digestive system & enzymes", "Heart & blood vessels", "Communicable diseases", "Human defence systems", "Vaccination", "Photosynthesis (basic)", "Respiration", "Homeostasis (basic)", "Nervous system", "Hormonal coordination (basic)", "Reproduction", "Variation & evolution", "Genetics (basic)", "Ecosystems", "Biodiversity", "Required practicals"],
+    Edexcel_Higher: ["Key concepts in biology", "Cells & control", "Genetics", "Natural selection & genetic modification", "Health, disease & medicine", "Plant structures & functions", "Animal coordination, control & homeostasis", "Exchange & transport in animals", "Ecosystems & material cycles", "Required practicals"],
+    Edexcel_Foundation: ["Key concepts in biology", "Cells & control", "Genetics (basic)", "Natural selection", "Health & disease", "Plant structures", "Animal coordination", "Exchange & transport", "Ecosystems", "Required practicals"],
+  },
+  chemistry: {
+    AQA_Higher: ["Atomic structure & periodic table", "Electronic structure", "Group 1, 7 & 0", "Ionic bonding", "Covalent & metallic bonding", "Properties of structures", "Quantitative chemistry & moles", "Reacting masses & concentrations", "Chemical changes & electrolysis", "Reactivity series & extraction", "Acids, bases & salts", "Energy changes & bond energies", "Rates of reaction", "Reversible reactions & equilibrium", "Crude oil & hydrocarbons", "Organic reactions & functional groups", "Polymers", "Chemical analysis & chromatography", "Identification of ions & gases", "Earth's atmosphere", "Using Earth's resources", "Life cycle assessments", "Required practicals"],
+    AQA_Foundation: ["Atomic structure (basic)", "Periodic table", "Ionic & covalent bonding", "Properties of structures", "Quantitative chemistry (basic)", "Chemical changes", "Reactivity series", "Acids & alkalis", "Energy changes", "Rates of reaction", "Hydrocarbons & fuels", "Chemical analysis", "Earth's atmosphere", "Using resources", "Required practicals"],
+    Edexcel_Higher: ["Key concepts in chemistry", "States of matter & mixtures", "Chemical changes", "Extracting metals & equilibria", "Separate chemistry 1", "Groups in the periodic table", "Rates of reaction & energy changes", "Fuels & Earth science", "Separate chemistry 2", "Required practicals"],
+    Edexcel_Foundation: ["Key concepts in chemistry", "States of matter & mixtures", "Chemical changes", "Extracting metals", "Groups in the periodic table", "Rates of reaction", "Fuels & Earth science", "Required practicals"],
+  },
+  physics: {
+    AQA_Higher: ["Energy stores & transfers", "Energy efficiency", "Energy resources", "Electrical circuits", "Series & parallel", "Mains electricity & power", "Density & states of matter", "Internal energy & specific heat", "Pressure in fluids", "Atomic structure", "Nuclear decay & half-life", "Hazards & uses of radiation", "Forces & Newton's laws", "Resultant forces & free-body diagrams", "Momentum (HT only)", "Stopping distances", "Waves: properties & behaviour", "Electromagnetic spectrum", "Lenses & magnification", "Sound waves", "Magnetic fields & electromagnets", "The motor effect", "Electromagnetic induction (HT only)", "Space physics", "Required practicals"],
+    AQA_Foundation: ["Energy stores & transfers", "Energy efficiency", "Energy resources", "Electrical circuits", "Series & parallel", "Mains electricity", "Density & states of matter", "Internal energy", "Atomic structure (basic)", "Radioactive decay", "Forces & Newton's laws", "Stopping distances", "Waves: properties", "Electromagnetic spectrum", "Sound waves", "Magnetic fields", "The motor effect", "Space physics", "Required practicals"],
+    Edexcel_Higher: ["Key concepts of physics", "Motion & forces", "Conservation of energy", "Waves", "Light & the EM spectrum", "Radioactivity", "Astronomy", "Energy: forces doing work", "Electricity & circuits", "Magnetism & motor effect", "Electromagnetic induction", "Particle model", "Forces & their effects", "Required practicals"],
+    Edexcel_Foundation: ["Key concepts of physics", "Motion & forces", "Conservation of energy", "Waves", "Light & the EM spectrum", "Radioactivity", "Astronomy", "Electricity & circuits", "Magnetism", "Particle model", "Required practicals"],
   },
   english: {
     AQA: ["Language P1: fiction reading (AO1-AO4)", "Language P1: creative writing (AO5-AO6)", "Language P2: non-fiction reading (AO1-AO3)", "Language P2: viewpoint writing (AO5-AO6)", "Spoken language endorsement", "Literature: Shakespeare (Macbeth/R&J/Tempest/MND)", "Literature: 19th century novel (ACC/JE/SS/FRK)", "Literature: modern text (AIC/LF/ATDP/P)", "Literature: poetry anthology (Power & Conflict)", "Literature: unseen poetry & comparison", "Analytical writing techniques", "SPaG & sentence structures", "Quotation & evidence embedding", "Comparative writing skills"],

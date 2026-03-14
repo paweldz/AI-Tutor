@@ -84,6 +84,8 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = msgs.length;
+      // Reliable ISO date for week/month filtering (independent of Claude's date string)
+      data.isoDate = new Date().toISOString().slice(0, 10);
       // Always stamp study time — even for discussion-only sessions
       const rawMetrics = getMetrics(active);
       data.studyTimeMinutes = Math.round(rawMetrics.activeTimeMs / 60000);
@@ -129,6 +131,7 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = chatMsgs.length;
+      data.isoDate = new Date().toISOString().slice(0, 10);
       const rawAutoMetrics = getMetrics(sid);
       data.studyTimeMinutes = Math.round(rawAutoMetrics.activeTimeMs / 60000);
       data.sessionDurationMinutes = Math.round((Date.now() - rawAutoMetrics.sessionStartedAt) / 60000);

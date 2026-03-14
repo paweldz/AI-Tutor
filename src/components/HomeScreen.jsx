@@ -3,7 +3,6 @@ import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForSubject } from "../utils/topics.js";
-import { confidenceColor } from "../styles/tokens.js";
 import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
 import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO } from "../utils/grades.js";
 import { EventsPanel } from "./EventsPanel.jsx";
@@ -19,12 +18,16 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
   const parseSessionDate = (dateStr) => {
     if (!dateStr) return "";
-    const clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
-    const m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-    if (!m) return "";
-    const mo = MONTH_MAP[m[2].toLowerCase()];
-    if (!mo) return "";
-    return `${m[3]}-${mo}-${m[1].padStart(2, "0")}`;
+    // Already ISO format (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const clean = dateStr.replace(/^today[\s,]+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
+    // Day-first: "14 March 2026"
+    const dm = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (dm) { const mo = MONTH_MAP[dm[2].toLowerCase()]; if (mo) return `${dm[3]}-${mo}-${dm[1].padStart(2, "0")}`; }
+    // Month-first: "March 14, 2026" or "March 14 2026"
+    const md = clean.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+    if (md) { const mo = MONTH_MAP[md[1].toLowerCase()]; if (mo) return `${md[3]}-${mo}-${md[2].padStart(2, "0")}`; }
+    return "";
   };
 
   // Build local week/month comparators (independent of UTC-based weekHeatmap)
@@ -46,7 +49,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
     for (const ses of getSessions(memory, s.id)) {
       const mins = ses.studyTimeMinutes || 0;
       totalMinutes += mins;
-      const isoDate = parseSessionDate(ses.date);
+      const isoDate = ses.isoDate || parseSessionDate(ses.date);
       if (isoDate && localWeekDates.has(isoDate)) weekMinutes += mins;
       if (isoDate?.startsWith(monthStr)) monthMinutes += mins;
     }
@@ -101,11 +104,10 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
           const conf = getConfidence(memory, t.id);
           const avg = avgConfidence(conf);
-          const confTopics = Object.entries(conf).slice(0, 4);
           const tpct = topicPct(topicData, t.id, profile, customTopics);
           const allTopics = getTopicsForSubject(t.id, profile, customTopics);
           const tTotal = allTopics.length;
-          const tDone = Object.values(getTopicProgress(topicData, t.id)).filter(v => v.studied > 0).length;
+          const tDone = allTopics.filter(topic => (topicData[t.id] || {})[topic]?.studied > 0).length;
           const targetG = profile.targetGrades?.[t.id];
           const estG = estimateGrade(memory, events, topicData, profile, t.id, allTopics);
           return (
@@ -123,8 +125,19 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{t.label}{bd ? " \u00b7 " + bd : ""}</div>
               </div>
               <div style={{ background: "#fff", padding: "10px 16px" }}>
-                {tTotal > 0 && <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ height: 4, borderRadius: 2, background: "#eee" }}><div style={{ height: "100%", borderRadius: 2, background: t.color, width: tpct + "%", transition: "width .5s" }} /></div></div>}
-                {confTopics.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>{confTopics.map(([topic, pct]) => <div key={topic} style={{ height: 4, flex: 1, minWidth: 14, borderRadius: 2, background: confidenceColor(pct) }} title={topic + ": " + pct + "%"} />)}</div>}
+                {tTotal > 0 && (() => {
+                  const prog = topicData[t.id] || {};
+                  const topicConfs = allTopics.map(topic => {
+                    const c = conf[topic] ?? prog[topic]?.confidence ?? (prog[topic]?.studied > 0 ? 0 : -1);
+                    return { topic, confidence: c };
+                  }).sort((a, b) => {
+                    if (a.confidence < 0 && b.confidence >= 0) return 1;
+                    if (b.confidence < 0 && a.confidence >= 0) return -1;
+                    return b.confidence - a.confidence;
+                  });
+                  const confColor = c => c < 0 ? "#eee" : c >= 80 ? "#22c55e" : c >= 60 ? "#f59e0b" : c >= 30 ? "#f97316" : "#ef4444";
+                  return <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ display: "flex", gap: 2 }}>{topicConfs.map((tc, j) => <div key={j} title={tc.topic + (tc.confidence >= 0 ? ": " + tc.confidence + "%" : ": not covered")} style={{ flex: 1, height: 5, borderRadius: 3, background: confColor(tc.confidence), transition: "background .3s" }} />)}</div></div>;
+                })()}
                 <div style={{ fontSize: 11, color: t.color, fontWeight: 700, marginBottom: 4 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "")}</div>
                 {mc > 0 && <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
                 <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
