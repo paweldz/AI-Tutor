@@ -72,8 +72,8 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction, on
 
           {/* Summary text */}
           {summary && (
-            <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginBottom: 10, maxHeight: 120, overflowY: "auto", background: "#fafafa", borderRadius: 10, padding: "10px 12px" }}>
-              {summary.slice(0, 500)}{summary.length > 500 ? "..." : ""}
+            <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginBottom: 10, maxHeight: 240, overflowY: "auto", background: "#fafafa", borderRadius: 10, padding: "10px 12px", whiteSpace: "pre-wrap" }}>
+              {summary}
             </div>
           )}
 

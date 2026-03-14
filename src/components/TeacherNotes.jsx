@@ -29,7 +29,12 @@ function NoteForm({ subject, note, onSave, onCancel }) {
         </div>
         <div style={{ flex: 1 }}>
           <label style={lbl}>Expires (optional)</label>
-          <input type="date" value={draft.expires} onChange={e => set("expires", e.target.value)} style={inp} />
+          <div style={{ position: "relative" }}>
+            <input type="date" value={draft.expires} onChange={e => set("expires", e.target.value)} style={inp} />
+            {draft.expires && (
+              <button onClick={() => set("expires", "")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#999", padding: "0 2px", lineHeight: 1 }} title="Clear date">{"\u2715"}</button>
+            )}
+          </div>
         </div>
       </div>
 
