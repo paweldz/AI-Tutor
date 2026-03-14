@@ -91,7 +91,7 @@ export async function apiSummary(systemPrompt, chatMessages, metricsBlock = "") 
     const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
     const p = JSON.parse(cleaned);
     return {
-      date: p.date || new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+      date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
       topics: p.topics || [], strengths: p.strengths || [], weaknesses: p.weaknesses || [],
       confidenceScores: p.confidenceScores || {}, messageCount: p.messageCount || chatMessages.length,
       examQuestionsAttempted: p.examQuestionsAttempted || 0,
