@@ -61,6 +61,8 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
           setProfile(prev => {
             const base = prev || {};
             const merged = { ...base, ...cloud, examBoards: { ...base.examBoards, ...cloud.examBoards }, tutorCharacters: { ...base.tutorCharacters, ...cloud.tutorCharacters } };
+            // Backfill role for profiles saved before role selection existed
+            if (!merged.role) merged.role = "student";
             saveProfile(merged);
             if (merged.name) setActiveStudent(merged.name);
             return merged;
