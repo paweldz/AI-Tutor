@@ -56,33 +56,57 @@ export async function sbLoad() {
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
 }
 
-/** Delete a single session from Supabase by matching subject + date + summary prefix */
+/** Delete a single session from Supabase by matching subject + sessionId or date+summary */
 export async function sbDeleteSession(subject, session) {
-  if (!supabase) return;
+  if (!supabase) return false;
   try {
-    // Try matching by sessionId stored in the summary JSON first
     const { data } = await supabase.from("tutor_memory")
-      .select("id, summary")
+      .select("id, summary, session_date")
       .eq("subject", subject);
-    if (!data) return;
-    for (const row of data) {
-      let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
-      if (parsed?.sessionId && parsed.sessionId === session.sessionId) {
-        await supabase.from("tutor_memory").delete().eq("id", row.id);
-        return;
+    if (!data?.length) return false;
+
+    // 1. Match by sessionId (most reliable)
+    if (session.sessionId) {
+      for (const row of data) {
+        let parsed; try { parsed = JSON.parse(row.summary); } catch { continue; }
+        if (parsed?.sessionId === session.sessionId) {
+          const { error } = await supabase.from("tutor_memory").delete().eq("id", row.id);
+          if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+          return true;
+        }
       }
     }
-    // Fallback: match by date + text prefix
+
+    // 2. Fallback: match by date + summary text prefix
+    const sessText = (session.rawSummaryText || "").slice(0, 80);
+    const sessDate = session.date || "";
     for (const row of data) {
       let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
-      const rowText = parsed?.rawSummaryText || row.summary || "";
-      const sessText = session.rawSummaryText || "";
-      if (row.session_date === session.date && rowText.slice(0, 80) === sessText.slice(0, 80)) {
-        await supabase.from("tutor_memory").delete().eq("id", row.id);
-        return;
+      const rowText = (parsed?.rawSummaryText || row.summary || "").slice(0, 80);
+      const rowDate = parsed?.date || row.session_date || "";
+      if (rowDate === sessDate && sessText && rowText === sessText) {
+        const { error } = await supabase.from("tutor_memory").delete().eq("id", row.id);
+        if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+        return true;
       }
     }
-  } catch (e) { console.warn("[cloudSync] sbDeleteSession failed:", e); }
+
+    // 3. Last resort: match by date alone if only one session on that date
+    if (sessDate) {
+      const sameDateRows = data.filter(row => {
+        let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
+        return (parsed?.date || row.session_date || "") === sessDate;
+      });
+      if (sameDateRows.length === 1) {
+        const { error } = await supabase.from("tutor_memory").delete().eq("id", sameDateRows[0].id);
+        if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+        return true;
+      }
+    }
+
+    console.warn("[cloudSync] sbDeleteSession: no matching row found");
+    return false;
+  } catch (e) { console.warn("[cloudSync] sbDeleteSession failed:", e); return false; }
 }
 
 export function mergeMemory(local, cloud) {

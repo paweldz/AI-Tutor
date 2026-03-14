@@ -154,9 +154,10 @@ export default function App() {
     }, 300);
   }
 
-  function handleDeleteSession(subjectId, idx, session) {
+  async function handleDeleteSession(subjectId, idx, session) {
     setMemory(prev => deleteSessionFromMem(prev, subjectId, idx));
-    sbDeleteSession(subjectId, session);
+    const deleted = await sbDeleteSession(subjectId, session);
+    if (!deleted) console.warn("[App] Cloud delete failed for session:", session.date, session.sessionId);
   }
 
   function handleStartExam(session) {
