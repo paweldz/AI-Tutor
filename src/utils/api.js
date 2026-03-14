@@ -3,6 +3,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { SUBJECTS } from "../config/subjects.js";
+import { daysUntil, eventTypeInfo } from "./events.js";
 
 export const MODEL = "claude-sonnet-4-5-20250929";
 
@@ -102,7 +103,7 @@ export async function apiSummary(systemPrompt, chatMessages, metricsBlock = "") 
   }
 }
 
-export function buildSystemPrompt(sid, profile, summaries, mats, examSession, character) {
+export function buildSystemPrompt(sid, profile, summaries, mats, examSession, character, events) {
   const sub = SUBJECTS[sid]; if (!sub) return "";
   const board = profile.examBoards?.[sid] || "";
   const boardNote = !board ? "Exam board unknown \u2014 cover broadly. Encourage student to find out." : "";
@@ -138,8 +139,36 @@ The student has uploaded a past paper. You MUST:
     }
   }
 
+  // Upcoming events awareness
+  let eventsBlock = "";
+  if (events?.length) {
+    const upcoming = events
+      .filter(e => e.subjectId === sid && e.status === "upcoming")
+      .filter(e => { const d = daysUntil(e.date); return d >= 0 && d <= 14; })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const completed = events
+      .filter(e => e.subjectId === sid && e.status === "completed")
+      .slice(-3);
+    if (upcoming.length) {
+      eventsBlock += "\n\nUPCOMING EVENTS:\n" + upcoming.map(e => {
+        const d = daysUntil(e.date);
+        const ti = eventTypeInfo(e.type);
+        return `- ${ti.label}: "${e.title}" on ${e.date} (${d === 0 ? "TODAY" : d === 1 ? "TOMORROW" : d + " days away"})${e.topics?.length ? ", topics: " + e.topics.join(", ") : ""}`;
+      }).join("\n") + "\nGently suggest preparation when natural. Don't force it or nag.";
+    }
+    if (completed.length) {
+      eventsBlock += "\n\nRECENT TEST RESULTS:\n" + completed.map(e => {
+        const ti = eventTypeInfo(e.type);
+        let line = `- ${ti.label}: "${e.title}"`;
+        if (e.score != null && e.maxScore) line += ` — ${e.score}/${e.maxScore} (${Math.round(e.score / e.maxScore * 100)}%)`;
+        if (e.reflection?.toImprove) line += ` — needs work on: ${e.reflection.toImprove}`;
+        return line;
+      }).join("\n") + "\nUse these results to inform your teaching focus.";
+    }
+  }
+
   return examPrefix +
-    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${histBlock}${matBlock}\n\nASSESSMENT LOGGING (CRITICAL): You MUST call the log_assessment tool EVERY TIME the student answers a question or attempts a problem. Do this IMMEDIATELY after evaluating their answer, before your response text. Never skip this — it feeds the honest progress tracker. Include the specific sub-topic (e.g. "expanding double brackets" not "algebra"), accurate result, exact hint count, and whether they explained their reasoning.\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier);
+    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${histBlock}${matBlock}\n\nASSESSMENT LOGGING (CRITICAL): You MUST call the log_assessment tool EVERY TIME the student answers a question or attempts a problem. Do this IMMEDIATELY after evaluating their answer, before your response text. Never skip this — it feeds the honest progress tracker. Include the specific sub-topic (e.g. "expanding double brackets" not "algebra"), accurate result, exact hint count, and whether they explained their reasoning.\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier) + eventsBlock;
 }
 
 export function buildApiMsgs(mats, convMsgs, examSession) {

@@ -8,6 +8,7 @@ import { addXP, recordActivity } from "./utils/xp.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { sbDeleteSession } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
+import { updateEvent, deleteEvent, completeEvent, eventToMemoryEntry } from "./utils/events.js";
 
 import { useAuth } from "./hooks/useAuth.js";
 import { useVoice } from "./hooks/useVoice.js";
@@ -24,6 +25,8 @@ import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 import { ModalLayer } from "./components/ModalLayer.jsx";
 import { ExamSetup } from "./components/ExamSetup.jsx";
+import { EventModal } from "./components/EventModal.jsx";
+import { EventComplete } from "./components/EventComplete.jsx";
 import { DashboardPage } from "./components/DashboardPage.jsx";
 import { ParentHome } from "./components/ParentHome.jsx";
 import { ParentChildView } from "./components/ParentChildView.jsx";
@@ -51,6 +54,9 @@ export default function App() {
   const [quizSubject, setQuizSubject] = useState(null);
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [editingEvent, setEditingEvent] = useState(null); // null | "new" | event object
+  const [completingEvent, setCompletingEvent] = useState(null);
   const [viewingChild, setViewingChild] = useState(null);
   const [showLinkChild, setShowLinkChild] = useState(false);
   const bottomRef = useRef(null);
@@ -90,7 +96,7 @@ export default function App() {
     setStudentNotes(prev => ({ ...prev, [subjectId]: notes }));
   }
 
-  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes });
+  const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes, setEvents });
 
   const {
     voiceMode, setVoiceMode, convoMode, setConvoMode,
@@ -98,11 +104,11 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, profile, setStreakData });
+  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, events, profile, setStreakData });
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
-    examSession, voiceMode, convoMode, teacherNotes, studentNotes,
+    examSession, voiceMode, convoMode, teacherNotes, studentNotes, events,
     input, setInput, setMemory, setTopicData, gainXP,
   });
   useEffect(() => { sendRef.current = send; });
@@ -181,6 +187,32 @@ export default function App() {
       autoSave(active, msgs, curMats);
     }
     setExamSession(null);
+  }
+
+  // ── Event handlers ──
+  function handleSaveEvent(ev) {
+    setEvents(prev => {
+      const idx = prev.findIndex(e => e.id === ev.id);
+      return idx >= 0 ? updateEvent(prev, ev.id, ev) : [...prev, ev];
+    });
+  }
+
+  function handleDeleteEvent(id) {
+    setEvents(prev => deleteEvent(prev, id));
+  }
+
+  function handleCompleteEvent(id, result) {
+    setEvents(prev => completeEvent(prev, id, result));
+    // Save completed event to tutor memory
+    const ev = events.find(e => e.id === id);
+    if (ev) {
+      const completed = { ...ev, status: "completed", completedAt: new Date().toISOString(), ...result };
+      const memEntry = eventToMemoryEntry(completed);
+      setMemory(prev => {
+        const subSessions = prev.subjects?.[ev.subjectId] || [];
+        return { ...prev, subjects: { ...prev.subjects, [ev.subjectId]: [...subSessions, memEntry] } };
+      });
+    }
   }
 
   const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
@@ -268,17 +300,40 @@ export default function App() {
 
       {showExamSetup && subject && <ExamSetup subject={subject} onStart={handleStartExam} onClose={() => setShowExamSetup(false)} />}
 
+      {editingEvent && active && (
+        <EventModal
+          subjectId={active}
+          profile={profile}
+          customTopics={customTopics}
+          event={editingEvent !== "new" ? editingEvent : null}
+          onSave={handleSaveEvent}
+          onClose={() => setEditingEvent(null)}
+        />
+      )}
+
+      {completingEvent && (
+        <EventComplete
+          event={completingEvent}
+          onComplete={handleCompleteEvent}
+          onClose={() => setCompletingEvent(null)}
+        />
+      )}
+
       <Header
         profile={profile} active={active} subject={subject} curMats={curMats}
         examMode={examMode} examSession={examSession} voiceMode={voiceMode} convoMode={convoMode}
         msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
         dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
-        teacherNotes={teacherNotes} studentNotes={studentNotes} curMem={curMem}
+        teacherNotes={teacherNotes} studentNotes={studentNotes} curMem={curMem} events={events}
         setModal={setModal} setShowExamSetup={setShowExamSetup} onEndExam={handleEndExam} setBuildQuizFor={setBuildQuizFor}
         setQuizSubject={setQuizSubject} setTopicsFor={setTopicsFor}
         setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
         genSummary={handleGenSummary} setActive={setActive} switchUser={switchUser}
         startMicRef={startMicRef} stopMic={stopMic}
+        onAddEvent={() => setEditingEvent("new")}
+        onCompleteEvent={ev => setCompletingEvent(ev)}
+        onEditEvent={ev => setEditingEvent(ev)}
+        onDeleteEvent={handleDeleteEvent}
       />
 
       {!active ? (
@@ -287,6 +342,7 @@ export default function App() {
           <HomeScreen
             profile={profile} memory={memory} mats={mats} xpData={xpData}
             streakData={streakData} topicData={topicData} customTopics={customTopics} totalMem={totalMem}
+            events={events}
             onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
             onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
           />

@@ -11,7 +11,7 @@ import { supabase } from "../lib/supabase.js";
  * Exposes `syncing` so App can show a loading screen instead of Setup
  * while the initial cloud load is in progress.
  */
-export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes }) {
+export function useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes, setEvents }) {
   const sbSyncedRef = useRef(false);
   const lastUserIdRef = useRef(null);
   const [dbConnected, setDbConnected] = useState(false);
@@ -59,6 +59,9 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
         if (settings?.studentNotes) {
           setStudentNotes(settings.studentNotes);
         }
+        if (settings?.events) {
+          setEvents(settings.events);
+        }
 
         // ── Phase 2: Load memory, XP, streaks in parallel ──
         // Prefer memory from tutor_settings (includes deletes/clears),
@@ -95,7 +98,7 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
     }
 
     runSync();
-  }, [user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes]);
+  }, [user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes, setEvents]);
 
   function resetSync() {
     sbSyncedRef.current = false;

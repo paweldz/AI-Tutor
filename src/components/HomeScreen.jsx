@@ -3,8 +3,9 @@ import { getSessions } from "../utils/storage.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForSubject } from "../utils/topics.js";
 import { confidenceColor } from "../styles/tokens.js";
+import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
@@ -33,6 +34,39 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
 
       <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
       <p style={{ color: "#999", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
+
+      {/* Upcoming Events */}
+      {(() => {
+        const upcoming = getUpcoming(events || []);
+        if (!upcoming.length) return null;
+        return (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "14px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udcc5"} Upcoming Events</div>
+            {upcoming.slice(0, 5).map(ev => {
+              const sub = SUBJECTS[ev.subjectId];
+              const ti = eventTypeInfo(ev.type);
+              const days = daysUntil(ev.date);
+              const urgent = days <= 1;
+              return (
+                <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f5f5f5" }}>
+                  <span style={{ fontSize: 18 }}>{ti.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      {sub?.emoji} {sub?.label}
+                      {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 2).join(", ") : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                    {days > 1 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} days</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
         {mySubjects(profile).map((t, i) => {

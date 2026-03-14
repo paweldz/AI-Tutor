@@ -15,7 +15,7 @@ import { createSessionMetrics, recordMessage, recordAssessment, computeMetricsSu
  */
 export function useChat({
   active, profile, memory, sessions, setSessions, mats,
-  examSession, voiceMode, convoMode, teacherNotes, studentNotes,
+  examSession, voiceMode, convoMode, teacherNotes, studentNotes, events,
   input, setInput, setMemory, setTopicData, gainXP,
 }) {
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export function useChat({
     setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: updated } }));
     if (!override) setInput("");
     setLoading(true);
-    const sys = buildSystemPrompt(active, profile, curMem, curMats, examSession, profile.tutorCharacters?.[active]);
+    const sys = buildSystemPrompt(active, profile, curMem, curMats, examSession, profile.tutorCharacters?.[active], events);
     const langName = subject?.label || "the target language";
     const voiceNote = convoMode ? `REAL-TIME CONVERSATION MODE: You and the student are in a live spoken conversation. Keep responses very short (1-2 sentences), natural and conversational. ALWAYS end with a question or prompt to keep the dialogue flowing. Use increasingly more ${langName} as the student improves. Be encouraging and energetic.\n\n` : voiceMode ? `VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more ${langName} than usual. If the student's speech has speech-recognition errors, interpret charitably.\n\n` : "";
     const textMats = curMats.filter(m => m.isText);
@@ -73,7 +73,7 @@ export function useChat({
     if (msgs.length < 3 || sumLoading) return;
     setSumLoading(true);
     try {
-      const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active]);
+      const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active], events);
       const metricsBlock = formatMetricsForPrompt(getMetrics(active));
       const localMetrics = computeMetricsSummary(getMetrics(active));
       const data = await apiSummary(sys, msgs, metricsBlock);
@@ -113,7 +113,7 @@ export function useChat({
     if (chatMsgs.length < 6 || autoSumming) return;
     setAutoSumming(true);
     try {
-      const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid]);
+      const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid], events);
       const metricsBlock = formatMetricsForPrompt(getMetrics(sid));
       const localMetrics = computeMetricsSummary(getMetrics(sid));
       const data = await apiSummary(sys, chatMsgs, metricsBlock);
