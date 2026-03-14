@@ -50,7 +50,11 @@ export async function sbLoad() {
     for (const row of data) {
       if (!subjects[row.subject]) subjects[row.subject] = [];
       let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
-      subjects[row.subject].push(parsed?.rawSummaryText ? parsed : { date: row.session_date, rawSummaryText: row.summary, topics: [], strengths: [], weaknesses: [], confidenceScores: {}, messageCount: 0, examQuestionsAttempted: 0 });
+      // Stamp isoDate from Supabase created_at for reliable week/month filtering
+      if (parsed && !parsed.isoDate && row.created_at) {
+        parsed.isoDate = row.created_at.slice(0, 10);
+      }
+      subjects[row.subject].push(parsed?.rawSummaryText ? parsed : { date: row.session_date, isoDate: row.created_at ? row.created_at.slice(0, 10) : "", rawSummaryText: row.summary, topics: [], strengths: [], weaknesses: [], confidenceScores: {}, messageCount: 0, examQuestionsAttempted: 0 });
     }
     return { version: 2, subjects };
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
