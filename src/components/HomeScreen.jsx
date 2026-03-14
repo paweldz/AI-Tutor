@@ -14,122 +14,81 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
 
+  // Robust date parser for session dates
+  const parseSessionDate = (dateStr) => {
+    if (!dateStr) return "";
+    try {
+      let clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+      const d = new Date(clean);
+      if (isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    } catch { return ""; }
+  };
+
+  // Aggregate study time
+  const now = new Date();
+  const monthStr = now.toISOString().slice(0, 7);
+  const weekDates = new Set(week.map(w => w.date));
+  const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
+  const subs = mySubjects(profile);
+  let totalMinutes = 0, weekMinutes = 0, monthMinutes = 0;
+  for (const s of subs) {
+    for (const ses of getSessions(memory, s.id)) {
+      const mins = ses.studyTimeMinutes || 0;
+      totalMinutes += mins;
+      const isoDate = parseSessionDate(ses.date);
+      if (isoDate && weekDates.has(isoDate)) weekMinutes += mins;
+      if (isoDate?.startsWith(monthStr)) monthMinutes += mins;
+    }
+  }
+
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 22px" }}>
-      {/* Streak & XP Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-        {/* a. Streaks */}
-        <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 22 }}>{streak > 0 ? "\ud83d\udd25" : "\u2744\ufe0f"}</span>
-            <div><div style={{ fontSize: 22, fontWeight: 900, color: "#1a1a2e", lineHeight: 1 }}>{streak}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>day streak</div></div>
+      {/* 1. Heading */}
+      <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
+      <p style={{ color: "#999", fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
+
+      {/* 2. Three compact widgets: Streaks · Level · Study Time */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+        {/* Streaks */}
+        <div style={{ background: "#fff", borderRadius: 14, padding: "14px 12px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 18 }}>{streak > 0 ? "\ud83d\udd25" : "\u2744\ufe0f"}</span>
+            <div><div style={{ fontSize: 20, fontWeight: 900, color: "#1a1a2e", lineHeight: 1 }}>{streak}</div><div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>day streak</div></div>
           </div>
-          <div style={{ display: "flex", gap: 3 }}>{week.map((d, i) => <div key={i} style={{ flex: 1, textAlign: "center" }}><div style={{ width: "100%", height: 6, borderRadius: 3, background: d.active ? "#22c55e" : "#eee", marginBottom: 2 }} /><div style={{ fontSize: 8, color: "#bbb" }}>{d.day}</div></div>)}</div>
+          <div style={{ display: "flex", gap: 2 }}>{week.map((d, i) => <div key={i} style={{ flex: 1 }}><div style={{ width: "100%", height: 5, borderRadius: 3, background: d.active ? "#22c55e" : "#eee", marginBottom: 1 }} /><div style={{ fontSize: 7, color: "#bbb", textAlign: "center" }}>{d.day}</div></div>)}</div>
         </div>
-        {/* b. Level */}
-        <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 22 }}>{LEVEL_EMOJIS[lv.level] || "\ud83c\udfc6"}</span>
-            <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Level {lv.level}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{lv.title}</div></div>
-            <div style={{ marginLeft: "auto", fontSize: 18, fontWeight: 900, color: "#f0c040" }}>{xpData.total}</div>
+        {/* Level */}
+        <div style={{ background: "#fff", borderRadius: 14, padding: "14px 12px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 18 }}>{LEVEL_EMOJIS[lv.level] || "\ud83c\udfc6"}</span>
+            <div><div style={{ fontSize: 12, fontWeight: 800, color: "#1a1a2e" }}>Level {lv.level}</div><div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>{lv.title}</div></div>
           </div>
-          <div style={{ height: 6, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#f0c040,#f59e0b)", width: Math.min(100, lv.current / lv.next * 100) + "%", transition: "width .5s" }} /></div>
-          <div style={{ fontSize: 9, color: "#bbb", marginTop: 3 }}>{lv.current}/{lv.next} XP to Level {lv.level + 1}</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: "#f0c040", marginBottom: 4 }}>{xpData.total} <span style={{ fontSize: 9, fontWeight: 600, color: "#ccc" }}>XP</span></div>
+          <div style={{ height: 5, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#f0c040,#f59e0b)", width: Math.min(100, lv.current / lv.next * 100) + "%", transition: "width .5s" }} /></div>
+          <div style={{ fontSize: 8, color: "#bbb", marginTop: 2 }}>{lv.current}/{lv.next} to Lv.{lv.level + 1}</div>
+        </div>
+        {/* Study Time */}
+        <div style={{ background: "#fff", borderRadius: 14, padding: "14px 12px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 18 }}>{"\u23f1\ufe0f"}</span>
+            <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>Study Time</div>
+          </div>
+          <div style={{ marginBottom: 3 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1a2e", lineHeight: 1.2 }}>{fmtTime(weekMinutes)}</div>
+            <div style={{ fontSize: 8, color: "#999", fontWeight: 600 }}>this week</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div><div style={{ fontSize: 11, fontWeight: 800, color: "#1a1a2e" }}>{fmtTime(monthMinutes)}</div><div style={{ fontSize: 7, color: "#bbb" }}>month</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 800, color: "#1a1a2e" }}>{fmtTime(totalMinutes)}</div><div style={{ fontSize: 7, color: "#bbb" }}>all time</div></div>
+          </div>
         </div>
       </div>
 
-      {/* c. Study Time — full width */}
-      {(() => {
-        const activeDays = streakData.dates?.length || 0;
-        const thisWeekDays = week.filter(d => d.active).length;
-        const now = new Date();
-        const monthStr = now.toISOString().slice(0, 7); // "YYYY-MM"
-        const weekDates = new Set(week.map(w => w.date));
-        const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
-
-        // Aggregate real study time from saved sessions
-        const subs = mySubjects(profile);
-        let totalMinutes = 0;
-        let weekMinutes = 0;
-        let monthMinutes = 0;
-        let totalSessionCount = 0;
-
-        // Robust date parser: handles "14 March 2026", "14th March 2026",
-        // "today 14 March 2026", and other AI output quirks.
-        // Returns "YYYY-MM-DD" or "" on failure.
-        const parseSessionDate = (dateStr) => {
-          if (!dateStr) return "";
-          try {
-            // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, etc.) and leading "today"
-            let clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
-            const d = new Date(clean);
-            if (isNaN(d.getTime())) return "";
-            // Use local date parts to avoid timezone shift issues
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, "0");
-            const day = String(d.getDate()).padStart(2, "0");
-            return `${y}-${m}-${day}`;
-          } catch { return ""; }
-        };
-
-        const subjectMonthly = subs.map(s => {
-          const sessions = getSessions(memory, s.id);
-          let subMonthMins = 0;
-          let subMonthCount = 0;
-          for (const ses of sessions) {
-            const mins = ses.studyTimeMinutes || 0;
-            totalMinutes += mins;
-            totalSessionCount++;
-            const isoDate = parseSessionDate(ses.date);
-            if (isoDate && weekDates.has(isoDate)) weekMinutes += mins;
-            if (isoDate?.startsWith(monthStr)) { monthMinutes += mins; subMonthMins += mins; subMonthCount++; }
-          }
-          return { id: s.id, label: s.label, emoji: s.emoji, color: s.color, count: subMonthCount, mins: subMonthMins };
-        }).filter(s => s.count > 0).sort((a, b) => b.mins - a.mins).slice(0, 3);
-
-        return (
-          <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 22 }}>{"\u23f1\ufe0f"}</span>
-              <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{totalSessionCount} sessions across {activeDays} active days</div></div>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <div style={{ flex: 1, textAlign: "center", background: "#f0fdf4", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(weekMinutes)}</div>
-                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this week</div>
-                <div style={{ fontSize: 8, color: "#bbb" }}>{thisWeekDays} day{thisWeekDays !== 1 ? "s" : ""} active</div>
-              </div>
-              <div style={{ flex: 1, textAlign: "center", background: "#fefce8", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(monthMinutes)}</div>
-                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this month</div>
-              </div>
-              <div style={{ flex: 1, textAlign: "center", background: "#eff6ff", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(totalMinutes)}</div>
-                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>all time</div>
-              </div>
-            </div>
-            {subjectMonthly.length > 0 && (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>This month by subject</div>
-                {subjectMonthly.map(s => (
-                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14 }}>{s.emoji}</span>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a2e", width: 80 }}>{s.label}</div>
-                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#eee" }}>
-                      <div style={{ height: "100%", borderRadius: 3, background: s.color, width: Math.min(100, (s.mins / Math.max(...subjectMonthly.map(x => x.mins), 1)) * 100) + "%", transition: "width .5s" }} />
-                    </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#666", width: 50, textAlign: "right" }}>{fmtTime(s.mins)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
-      <p style={{ color: "#999", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
-
+      {/* 3. Tutor cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
         {mySubjects(profile).map((t, i) => {
           const sc = getSessions(memory, t.id).length, mc = (mats[t.id] || []).length, bd = profile.examBoards?.[t.id];
@@ -172,7 +131,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
         })}
       </div>
 
-      {/* Upcoming Events — below tutor cards */}
+      {/* 4. Upcoming Events */}
       {(() => {
         const upcoming = getUpcoming(events || []);
         return (
@@ -230,6 +189,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
         />
       )}
 
+      {/* 5. Tips */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #eee" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udca1"} Tips</div>
         {[["Quick Quiz", "Tap \u26a1 for 10 instant questions on your weak topics."], ["Quiz Builder", "Tap \ud83d\udee0\ufe0f to customise question types and upload materials."], ["Earn XP", "+5 per message, +25 per summary, +20 per correct answer."], ["Keep your streak", "Open the app daily to build your streak!"]].map(([t, d]) => <div key={t} style={{ display: "flex", gap: 10, marginBottom: 8 }}><div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 12, minWidth: 120 }}>{t}</div><div style={{ color: "#888", fontSize: 12 }}>{d}</div></div>)}
