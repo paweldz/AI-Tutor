@@ -102,7 +102,7 @@ export async function apiSummary(systemPrompt, chatMessages, metricsBlock = "") 
   }
 }
 
-export function buildSystemPrompt(sid, profile, summaries, mats, examMode, character) {
+export function buildSystemPrompt(sid, profile, summaries, mats, examSession, character) {
   const sub = SUBJECTS[sid]; if (!sub) return "";
   const board = profile.examBoards?.[sid] || "";
   const boardNote = !board ? "Exam board unknown \u2014 cover broadly. Encourage student to find out." : "";
@@ -113,16 +113,47 @@ export function buildSystemPrompt(sid, profile, summaries, mats, examMode, chara
     const recent = summaries.slice(-4);
     histBlock = "\n\nPAST SESSIONS (" + recent.length + "):\n" + recent.map(s => "[" + s.date + "]: " + (s.rawSummaryText || "").slice(0, 400)).join("\n---\n") + "\n\nAvoid re-teaching mastered topics, prioritise weak areas.";
   }
-  return (examMode ? "EXAM PRACTICE MODE: student attempts first, then mark properly, show model answer.\n\n" : "") +
+
+  // Build exam mode prefix
+  let examPrefix = "";
+  // Support both object (new) and boolean (legacy/summary) forms
+  const examMode = examSession && typeof examSession === "object" ? examSession : examSession ? { mode: "free" } : null;
+  if (examMode) {
+    if (examMode.mode === "paper") {
+      const descNote = examMode.description ? ` Paper: ${examMode.description}.` : "";
+      const timeNote = examMode.timeLimit ? ` Time limit: ${examMode.timeLimit} minutes.` : "";
+      examPrefix = `PAST PAPER PRACTICE MODE:${descNote}${timeNote}
+The student has uploaded a past paper. You MUST:
+1. Extract ALL questions from the uploaded paper — read every page carefully
+2. Present questions ONE AT A TIME, clearly numbered (e.g. "Question 1a", "Question 2b")
+3. Wait for the student's answer before moving on
+4. After each answer: mark it (X/Y marks), explain the mark scheme, show the model answer
+5. Then move to the next question automatically
+6. Keep a running score (e.g. "Running total: 12/20 marks")
+7. At the end, give a full breakdown: total marks, percentage, grade boundary estimate, and topic-by-topic analysis
+
+`;
+    } else {
+      examPrefix = "EXAM PRACTICE MODE: student attempts first, then mark properly, show model answer.\n\n";
+    }
+  }
+
+  return examPrefix +
     `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${histBlock}${matBlock}\n\nASSESSMENT LOGGING (CRITICAL): You MUST call the log_assessment tool EVERY TIME the student answers a question or attempts a problem. Do this IMMEDIATELY after evaluating their answer, before your response text. Never skip this — it feeds the honest progress tracker. Include the specific sub-topic (e.g. "expanding double brackets" not "algebra"), accurate result, exact hint count, and whether they explained their reasoning.\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier);
 }
 
-export function buildApiMsgs(mats, convMsgs) {
-  const media = mats.filter(m => m.isImg || m.isPdf);
+export function buildApiMsgs(mats, convMsgs, examSession) {
+  // Combine regular materials with exam paper materials
+  const allMats = [...mats];
+  if (examSession?.paperMats?.length) {
+    allMats.push(...examSession.paperMats);
+  }
+  const media = allMats.filter(m => m.isImg || m.isPdf);
   if (!media.length) return convMsgs;
+  const isPaper = examSession?.mode === "paper";
   return [
-    { role: "user", content: [...media.map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } })), { type: "text", text: "These are my teacher's materials. Acknowledge receipt." }] },
-    { role: "assistant", content: "Got your teacher's materials \u2014 ready to help. Shall I quiz you, summarise them, or help prepare for a test?" },
+    { role: "user", content: [...media.map(m => ({ type: m.isPdf ? "document" : "image", source: { type: "base64", media_type: m.mediaType, data: m.base64 } })), { type: "text", text: isPaper ? "Here is my past paper. Please read all questions carefully." : "These are my teacher's materials. Acknowledge receipt." }] },
+    { role: "assistant", content: isPaper ? "I've received your past paper and read through all the questions. Let's begin \u2014 I'll take you through each question one at a time." : "Got your teacher's materials \u2014 ready to help. Shall I quiz you, summarise them, or help prepare for a test?" },
     ...convMsgs,
   ];
 }

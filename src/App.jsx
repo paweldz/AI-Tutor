@@ -23,6 +23,7 @@ import { HomeScreen } from "./components/HomeScreen.jsx";
 import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 import { ModalLayer } from "./components/ModalLayer.jsx";
+import { ExamSetup } from "./components/ExamSetup.jsx";
 import { DashboardPage } from "./components/DashboardPage.jsx";
 import { ParentHome } from "./components/ParentHome.jsx";
 import { ParentChildView } from "./components/ParentChildView.jsx";
@@ -38,7 +39,8 @@ export default function App() {
   const [active, setActiveRaw] = useState(null);
   const [modal, setModal] = useState(null);
   const [showSum, setShowSum] = useState(null);
-  const [examMode, setExamMode] = useState(false);
+  const [examSession, setExamSession] = useState(null);
+  const [showExamSetup, setShowExamSetup] = useState(false);
   const [input, setInput] = useState("");
   const [xpData, setXpData] = useState({ total: 0, history: [] });
   const [streakData, setStreakData] = useState({ dates: [] });
@@ -61,6 +63,7 @@ export default function App() {
   const curMem = active ? getSessions(memory, active) : [];
   const totalMem = Object.values(memory.subjects || {}).reduce((a, s) => a + (s?.length || 0), 0);
   const voiceCfg = subject?.voice?.enabled ? subject.voice : null;
+  const examMode = !!examSession;
 
   function gainXP(amount, reason) {
     setXpData(prev => addXP(prev, amount, reason));
@@ -99,7 +102,7 @@ export default function App() {
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
-    examMode, voiceMode, convoMode, teacherNotes, studentNotes,
+    examSession, voiceMode, convoMode, teacherNotes, studentNotes,
     input, setInput, setMemory, setTopicData, gainXP,
   });
   useEffect(() => { sendRef.current = send; });
@@ -107,7 +110,7 @@ export default function App() {
   const { setActive, updateProfile, switchUser, studyTopic } = useSessionManager({
     active, sessions, msgs, curMats, profile, memory, autoSumming,
     xpData, streakData, topicData, customTopics,
-    setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
+    setActiveRaw, setSessions, setMats, setExamSession, setProfile, setMemory,
     setXpData, setStreakData, setTopicData, setCustomTopics, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
   });
 
@@ -154,6 +157,29 @@ export default function App() {
   function handleDeleteSession(subjectId, idx, session) {
     setMemory(prev => deleteSessionFromMem(prev, subjectId, idx));
     sbDeleteSession(subjectId, session);
+  }
+
+  function handleStartExam(session) {
+    setExamSession(session);
+    setShowExamSetup(false);
+    // If paper mode, inject the paper into the chat as an opening message
+    if (session.mode === "paper" && session.paperMats.length > 0) {
+      const fileNames = session.paperMats.map(m => m.name).join(", ");
+      const desc = session.description ? ` (${session.description})` : "";
+      const timeNote = session.timeLimit ? ` I have ${session.timeLimit} minutes.` : "";
+      setTimeout(() => {
+        if (sendRef.current) sendRef.current(`I've uploaded my past paper${desc}: ${fileNames}. Please extract all the questions and take me through them one at a time, marking my answer before moving to the next.${timeNote}`);
+      }, 300);
+    }
+  }
+
+  function handleEndExam() {
+    if (!examSession) return;
+    // Auto-save the exam session if substantial
+    if (active && msgs.length >= 4) {
+      autoSave(active, msgs, curMats);
+    }
+    setExamSession(null);
   }
 
   const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
@@ -239,13 +265,15 @@ export default function App() {
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
       />
 
+      {showExamSetup && subject && <ExamSetup subject={subject} onStart={handleStartExam} onClose={() => setShowExamSetup(false)} />}
+
       <Header
         profile={profile} active={active} subject={subject} curMats={curMats}
-        examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
+        examMode={examMode} examSession={examSession} voiceMode={voiceMode} convoMode={convoMode}
         msgs={msgs} sumLoading={sumLoading} autoSumming={autoSumming}
         dbConnected={dbConnected} totalMem={totalMem} voiceCfg={voiceCfg} micSupported={micSupported}
         teacherNotes={teacherNotes} studentNotes={studentNotes} curMem={curMem}
-        setModal={setModal} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor}
+        setModal={setModal} setShowExamSetup={setShowExamSetup} onEndExam={handleEndExam} setBuildQuizFor={setBuildQuizFor}
         setQuizSubject={setQuizSubject} setTopicsFor={setTopicsFor}
         setVoiceMode={setVoiceMode} setConvoMode={setConvoMode}
         genSummary={handleGenSummary} setActive={setActive} switchUser={switchUser}
@@ -265,7 +293,8 @@ export default function App() {
       ) : (
         <ChatView
           subject={subject} msgs={msgs} loading={loading} input={input} setInput={setInput}
-          onSend={send} examMode={examMode} voiceMode={voiceMode} convoMode={convoMode}
+          onSend={send} examMode={examMode} examSession={examSession} onEndExam={handleEndExam}
+          voiceMode={voiceMode} convoMode={convoMode}
           speaking={speaking} setSpeaking={setSpeaking} listening={listening}
           transcribing={transcribing} quickPrompts={quickPrompts} voiceCfg={voiceCfg}
           micSupported={micSupported} startMic={startMic} stopMic={stopMic}

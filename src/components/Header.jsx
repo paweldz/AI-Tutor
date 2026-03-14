@@ -3,7 +3,7 @@ import { stopSpeaking } from "../utils/speech.js";
 import { getActiveNotes } from "./TeacherNotes.jsx";
 import { getStudentNoteCount } from "./StudentNotes.jsx";
 
-function TestMenu({ subject, examMode, setExamMode, setBuildQuizFor, setQuizSubject }) {
+function TestMenu({ subject, examMode, examSession, setShowExamSetup, onEndExam, setBuildQuizFor, setQuizSubject }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -17,7 +17,9 @@ function TestMenu({ subject, examMode, setExamMode, setBuildQuizFor, setQuizSubj
   const items = [
     { emoji: "\u26a1", label: "Quick Test", desc: "10 auto-generated questions", onClick: () => { setQuizSubject(subject); setOpen(false); } },
     { emoji: "\ud83d\udee0\ufe0f", label: "Build Test", desc: "Customise question types & count", onClick: () => { setBuildQuizFor(subject); setOpen(false); } },
-    { emoji: "\ud83d\udcdd", label: examMode ? "Exam Mode ON" : "Exam Mode", desc: "Toggle strict exam conditions", active: examMode, onClick: () => { setExamMode(e => !e); setOpen(false); } },
+    examMode
+      ? { emoji: "\u23f9", label: "End Exam", desc: examSession?.mode === "paper" ? "Past paper practice" : "Free exam practice", active: true, onClick: () => { onEndExam(); setOpen(false); } }
+      : { emoji: "\ud83d\udcdd", label: "Exam Mode", desc: "Free practice or past paper", onClick: () => { setShowExamSetup(true); setOpen(false); } },
   ];
 
   return (
@@ -125,10 +127,10 @@ function ReviewMenu({ subject, msgs, sumLoading, sessionCount, genSummary, setMo
 }
 
 export function Header({
-  profile, active, subject, curMats, examMode, voiceMode, convoMode,
+  profile, active, subject, curMats, examMode, examSession, voiceMode, convoMode,
   msgs, sumLoading, autoSumming, dbConnected, totalMem, voiceCfg, micSupported,
   teacherNotes, studentNotes, curMem,
-  setModal, setExamMode, setBuildQuizFor, setQuizSubject, setTopicsFor,
+  setModal, setShowExamSetup, onEndExam, setBuildQuizFor, setQuizSubject, setTopicsFor,
   setVoiceMode, setConvoMode,
   genSummary, setActive, switchUser, startMicRef, stopMic
 }) {
@@ -142,7 +144,7 @@ export function Header({
       {active && (
         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
           <button className="btn" onClick={() => setTopicsFor(subject)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: "rgba(0,0,0,0.07)", color: "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} Topics</button>
-          <TestMenu subject={subject} examMode={examMode} setExamMode={setExamMode} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} />
+          <TestMenu subject={subject} examMode={examMode} examSession={examSession} setShowExamSetup={setShowExamSetup} onEndExam={onEndExam} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} />
           <NotesMenu subject={subject} teacherNoteCount={active ? getActiveNotes(teacherNotes, active).length : 0} studentNoteCount={active ? getStudentNoteCount(studentNotes, active) : 0} setModal={setModal} />
           <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
           {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) { stopSpeaking(); setConvoMode(false); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}

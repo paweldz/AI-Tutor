@@ -18,7 +18,14 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction, on
           {index + 1}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{session.date}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e", display: "flex", alignItems: "center", gap: 6 }}>
+            {session.date}
+            {session.isExam && (
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: session.examMode === "paper" ? "#7c3aed" : subject.color, color: "#fff", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {session.examMode === "paper" ? "Past Paper" : "Exam"}
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 11, color: "#888", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {topics.length > 0 ? topics.join(", ") : summary.slice(0, 60) || "No summary"}
           </div>
@@ -35,6 +42,14 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction, on
       {/* Expanded detail */}
       {expanded && (
         <div style={{ padding: "0 16px 14px", borderTop: "1px solid #f5f5f5" }}>
+          {/* Exam info */}
+          {session.isExam && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "8px 0 6px", fontSize: 11 }}>
+              {session.examDescription && <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f3ff", color: "#7c3aed", fontWeight: 600 }}>{session.examDescription}</span>}
+              {session.examDuration > 0 && <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f0f9ff", color: "#0369a1", fontWeight: 600 }}>{session.examDuration}min{session.examTimeLimit ? " / " + session.examTimeLimit + "min" : ""}</span>}
+            </div>
+          )}
+
           {/* Stats bar */}
           {m && m.totalQuestions > 0 && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "10px 0 8px" }}>

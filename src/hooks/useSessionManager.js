@@ -11,13 +11,13 @@ import { stopSpeaking } from "../utils/speech.js";
 export function useSessionManager({
   active, sessions, msgs, curMats, profile, memory, autoSumming,
   xpData, streakData, topicData, customTopics,
-  setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
+  setActiveRaw, setSessions, setMats, setExamSession, setProfile, setMemory,
   setXpData, setStreakData, setTopicData, setCustomTopics, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
 }) {
   function setActive(newId) {
     if (active && msgs.length >= 6 && !autoSumming) autoSave(active, msgs, curMats);
     setActiveRaw(newId);
-    setExamMode(false);
+    setExamSession(null);
     if (newId && !sessions[newId] && profile) {
       const sub = SUBJECTS[newId];
       const board = profile.examBoards?.[newId];

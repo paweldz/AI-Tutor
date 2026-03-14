@@ -15,7 +15,7 @@ import { createSessionMetrics, recordMessage, recordAssessment, computeMetricsSu
  */
 export function useChat({
   active, profile, memory, sessions, setSessions, mats,
-  examMode, voiceMode, convoMode, teacherNotes, studentNotes,
+  examSession, voiceMode, convoMode, teacherNotes, studentNotes,
   input, setInput, setMemory, setTopicData, gainXP,
 }) {
   const [loading, setLoading] = useState(false);
@@ -49,14 +49,14 @@ export function useChat({
     setSessions(prev => ({ ...prev, [active]: { ...prev[active], messages: updated } }));
     if (!override) setInput("");
     setLoading(true);
-    const sys = buildSystemPrompt(active, profile, curMem, curMats, examMode, profile.tutorCharacters?.[active]);
+    const sys = buildSystemPrompt(active, profile, curMem, curMats, examSession, profile.tutorCharacters?.[active]);
     const langName = subject?.label || "the target language";
     const voiceNote = convoMode ? `REAL-TIME CONVERSATION MODE: You and the student are in a live spoken conversation. Keep responses very short (1-2 sentences), natural and conversational. ALWAYS end with a question or prompt to keep the dialogue flowing. Use increasingly more ${langName} as the student improves. Be encouraging and energetic.\n\n` : voiceMode ? `VOICE MODE ACTIVE: Student is speaking aloud (speech-to-text). Keep responses conversational, shorter (2-3 sentences), and end with a question to keep the conversation flowing. Use more ${langName} than usual. If the student's speech has speech-recognition errors, interpret charitably.\n\n` : "";
     const textMats = curMats.filter(m => m.isText);
     const teacherNotesBlock = teacherNotes ? buildTeacherNotesPrompt(teacherNotes, active) : "";
     const studentNotesBlock = studentNotes ? buildStudentNotesPrompt(studentNotes, active) : "";
     const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys + teacherNotesBlock + studentNotesBlock;
-    const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })));
+    const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })), examSession);
     const onAssessment = (entry) => { metricsRef.current[active] = recordAssessment(getMetrics(active), entry); };
     const toolCtx = { memory, profile, active, onAssessment };
     const onToolUse = (name, input) => executeTool(name, input, toolCtx);
@@ -77,12 +77,18 @@ export function useChat({
       const metricsBlock = formatMetricsForPrompt(getMetrics(active));
       const localMetrics = computeMetricsSummary(getMetrics(active));
       const data = await apiSummary(sys, msgs, metricsBlock);
-      // Ensure metrics are always present (use local tracking as fallback)
       if (!data.metrics || !data.metrics.totalQuestions) data.metrics = localMetrics;
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
-      // Stamp with unique ID + message count for dedup
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = msgs.length;
+      // Stamp exam info if this was an exam session
+      if (examSession) {
+        data.isExam = true;
+        data.examMode = examSession.mode;
+        data.examDescription = examSession.description || "";
+        data.examTimeLimit = examSession.timeLimit || 0;
+        data.examDuration = Math.round((Date.now() - examSession.startedAt) / 60000);
+      }
       setMemory(prev => addSessionToMem(prev, active, data));
       sbSave(active, data.date, JSON.stringify(data));
       savedRef.current[active] = msgs.length;
@@ -115,6 +121,13 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = chatMsgs.length;
+      if (examSession) {
+        data.isExam = true;
+        data.examMode = examSession.mode;
+        data.examDescription = examSession.description || "";
+        data.examTimeLimit = examSession.timeLimit || 0;
+        data.examDuration = Math.round((Date.now() - examSession.startedAt) / 60000);
+      }
       setMemory(prev => addSessionToMem(prev, sid, data));
       sbSave(sid, data.date, JSON.stringify(data));
       savedRef.current[sid] = chatMsgs.length;
