@@ -1,12 +1,17 @@
 import { useState } from "react";
-import { SUBJECTS } from "../config/subjects.js";
+import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { EVENT_TYPES, createEvent } from "../utils/events.js";
 import { getTopicsForSubject } from "../utils/topics.js";
 
 export function EventModal({ subjectId, profile, customTopics, event, onSave, onClose }) {
   const isEdit = !!event;
-  const sub = subjectId ? SUBJECTS[subjectId] : null;
-  const topics = subjectId ? getTopicsForSubject(subjectId, profile, customTopics) : [];
+  const subs = mySubjects(profile);
+  const needsPicker = !subjectId && !isEdit;
+
+  const [pickedSubject, setPickedSubject] = useState(subs.length === 1 ? subs[0].id : "");
+  const effectiveSubjectId = subjectId || (isEdit ? event.subjectId : pickedSubject) || null;
+  const sub = effectiveSubjectId ? SUBJECTS[effectiveSubjectId] : null;
+  const topics = effectiveSubjectId ? getTopicsForSubject(effectiveSubjectId, profile, customTopics) : [];
 
   const [type, setType] = useState(event?.type || "test");
   const [title, setTitle] = useState(event?.title || "");
@@ -20,7 +25,7 @@ export function EventModal({ subjectId, profile, customTopics, event, onSave, on
   }
 
   function handleSave() {
-    if (!title.trim() || !date) return;
+    if (!title.trim() || !date || !effectiveSubjectId) return;
     if (isEdit) {
       onSave({
         ...event,
@@ -30,7 +35,7 @@ export function EventModal({ subjectId, profile, customTopics, event, onSave, on
       });
     } else {
       onSave(createEvent({
-        subjectId,
+        subjectId: effectiveSubjectId,
         type, title: title.trim(), date, description: description.trim(),
         topics: selectedTopics,
         reminderDays: reminder > 0 ? [reminder, 1] : [1],
@@ -57,6 +62,20 @@ export function EventModal({ subjectId, profile, customTopics, event, onSave, on
         </div>
 
         <div style={{ padding: "16px 24px 24px" }}>
+          {/* Subject picker — shown when no subject pre-selected */}
+          {needsPicker && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em" }}>Subject *</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {subs.map(s => (
+                  <button key={s.id} onClick={() => { setPickedSubject(s.id); setSelectedTopics([]); }} style={{ padding: "7px 14px", borderRadius: 12, border: pickedSubject === s.id ? `2px solid ${s.color}` : "2px solid #eee", background: pickedSubject === s.id ? s.color + "14" : "#fff", color: pickedSubject === s.id ? s.color : "#666", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    {s.emoji} {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Event type */}
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em" }}>Type</label>
@@ -114,7 +133,7 @@ export function EventModal({ subjectId, profile, customTopics, event, onSave, on
           )}
 
           {/* Save */}
-          <button onClick={handleSave} disabled={!title.trim() || !date} style={{ width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: (!title.trim() || !date) ? "#ccc" : color, color: "#fff", fontSize: 14, fontWeight: 700, cursor: (!title.trim() || !date) ? "default" : "pointer" }}>
+          <button onClick={handleSave} disabled={!title.trim() || !date || !effectiveSubjectId} style={{ width: "100%", padding: "12px 0", borderRadius: 12, border: "none", background: (!title.trim() || !date || !effectiveSubjectId) ? "#ccc" : color, color: "#fff", fontSize: 14, fontWeight: 700, cursor: (!title.trim() || !date || !effectiveSubjectId) ? "default" : "pointer" }}>
             {isEdit ? "Save Changes" : "Add Event"}
           </button>
         </div>

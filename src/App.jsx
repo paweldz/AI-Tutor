@@ -347,6 +347,9 @@ export default function App() {
             onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
             onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
             onEditEvent={ev => setEditingEvent(ev)}
+            onAddEvent={() => setEditingEvent("new")}
+            onCompleteEvent={ev => setCompletingEvent(ev)}
+            onDeleteEvent={handleDeleteEvent}
           />
         </>
       ) : (
@@ -366,7 +369,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        <Route path="/dashboard" element={<DashboardPage memory={memory} mats={mats} profile={profile} xpData={xpData} streakData={streakData} events={events} />} />
+        <Route path="/dashboard" element={<DashboardPage memory={memory} mats={mats} profile={profile} xpData={xpData} streakData={streakData} events={events} onAddEvent={() => setEditingEvent("new")} onEditEvent={ev => setEditingEvent(ev)} onCompleteEvent={ev => setCompletingEvent(ev)} onDeleteEvent={handleDeleteEvent} />} />
         <Route path="*" element={mainView} />
       </Routes>
     </ErrorBoundary>

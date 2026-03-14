@@ -118,6 +118,86 @@ export async function removeChildLink(linkId) {
   } catch (e) { console.warn("[parentSync] removeChildLink failed:", e); return false; }
 }
 
+/** Parent adds an event to a child's calendar. Reads existing events, appends, writes back. */
+export async function parentAddEvent(childId, event) {
+  if (!supabase) throw new Error("Cloud sync not configured");
+  try {
+    // Read current events
+    const { data: row } = await supabase
+      .from("tutor_settings")
+      .select("value")
+      .eq("user_id", childId)
+      .eq("key", "events")
+      .maybeSingle();
+    let existing = [];
+    if (row?.value) {
+      try { existing = typeof row.value === "string" ? JSON.parse(row.value) : row.value; } catch { existing = []; }
+    }
+    const updated = [...existing, event];
+    // Upsert
+    const { error } = await supabase
+      .from("tutor_settings")
+      .upsert({ user_id: childId, key: "events", value: JSON.stringify(updated) }, { onConflict: "user_id,key" });
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (e) {
+    console.warn("[parentSync] parentAddEvent failed:", e);
+    throw e;
+  }
+}
+
+/** Parent updates an event in a child's calendar. */
+export async function parentUpdateChildEvent(childId, eventId, updates) {
+  if (!supabase) throw new Error("Cloud sync not configured");
+  try {
+    const { data: row } = await supabase
+      .from("tutor_settings")
+      .select("value")
+      .eq("user_id", childId)
+      .eq("key", "events")
+      .maybeSingle();
+    let existing = [];
+    if (row?.value) {
+      try { existing = typeof row.value === "string" ? JSON.parse(row.value) : row.value; } catch { existing = []; }
+    }
+    const updated = existing.map(e => e.id === eventId ? { ...e, ...updates } : e);
+    const { error } = await supabase
+      .from("tutor_settings")
+      .upsert({ user_id: childId, key: "events", value: JSON.stringify(updated) }, { onConflict: "user_id,key" });
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (e) {
+    console.warn("[parentSync] parentUpdateChildEvent failed:", e);
+    throw e;
+  }
+}
+
+/** Parent deletes an event from a child's calendar. */
+export async function parentDeleteChildEvent(childId, eventId) {
+  if (!supabase) throw new Error("Cloud sync not configured");
+  try {
+    const { data: row } = await supabase
+      .from("tutor_settings")
+      .select("value")
+      .eq("user_id", childId)
+      .eq("key", "events")
+      .maybeSingle();
+    let existing = [];
+    if (row?.value) {
+      try { existing = typeof row.value === "string" ? JSON.parse(row.value) : row.value; } catch { existing = []; }
+    }
+    const updated = existing.filter(e => e.id !== eventId);
+    const { error } = await supabase
+      .from("tutor_settings")
+      .upsert({ user_id: childId, key: "events", value: JSON.stringify(updated) }, { onConflict: "user_id,key" });
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (e) {
+    console.warn("[parentSync] parentDeleteChildEvent failed:", e);
+    throw e;
+  }
+}
+
 /** Load a specific child's data (memory, XP, streaks, profile, topics). */
 export async function loadChildData(childId) {
   if (!supabase) return null;

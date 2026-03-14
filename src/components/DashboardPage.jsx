@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { buildAllSummaries } from "../utils/summaries.js";
 import { confidenceColor } from "../styles/tokens.js";
 import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
+import { EventsPanel } from "./EventsPanel.jsx";
 import s from "./Dashboard.module.css";
 
 /**
@@ -11,8 +13,9 @@ import s from "./Dashboard.module.css";
  * Reuses the same CSS module as the modal Dashboard.
  * Receives data via props from the App-level state.
  */
-export function DashboardPage({ memory, mats, profile, xpData, streakData, events }) {
+export function DashboardPage({ memory, mats, profile, xpData, streakData, events, onAddEvent, onEditEvent, onCompleteEvent, onDeleteEvent }) {
   const navigate = useNavigate();
+  const [showEventsPanel, setShowEventsPanel] = useState(false);
   const subs = profile ? mySubjects(profile) : [];
   const allSums = buildAllSummaries(memory);
 
@@ -85,35 +88,57 @@ export function DashboardPage({ memory, mats, profile, xpData, streakData, event
 
         {(() => {
           const upcoming = getUpcoming(events || []);
-          if (!upcoming.length) return null;
           return (
             <>
-              <div className={s.sectionTitle} style={{ marginTop: 24 }}>{"\ud83d\udcc5"} Upcoming Events</div>
-              {upcoming.slice(0, 8).map(ev => {
-                const sub = SUBJECTS[ev.subjectId];
-                const ti = eventTypeInfo(ev.type);
-                const days = daysUntil(ev.date);
-                const urgent = days <= 1;
-                return (
-                  <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#fff", borderRadius: 10, border: urgent ? "2px solid #ef4444" : "1px solid #eee", marginBottom: 8 }}>
-                    <span style={{ fontSize: 20 }}>{ti.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
-                      <div style={{ fontSize: 11, color: "#999" }}>
-                        {sub?.emoji} {sub?.label}
-                        {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 3).join(", ") : ""}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, marginBottom: 14 }}>
+                <div className={s.sectionTitle} style={{ margin: 0 }}>{"\ud83d\udcc5"} Upcoming Events</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {onAddEvent && <button onClick={onAddEvent} style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #6366f1", background: "transparent", color: "#6366f1", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Add</button>}
+                  <button onClick={() => setShowEventsPanel(true)} style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "transparent", color: "#888", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Manage All</button>
+                </div>
+              </div>
+              {upcoming.length === 0 ? (
+                <div style={{ background: "#fff", borderRadius: 10, padding: 20, textAlign: "center", color: "#aaa", fontSize: 13, border: "1px solid #eee", marginBottom: 8 }}>No upcoming events.</div>
+              ) : (
+                upcoming.slice(0, 8).map(ev => {
+                  const sub = SUBJECTS[ev.subjectId];
+                  const ti = eventTypeInfo(ev.type);
+                  const days = daysUntil(ev.date);
+                  const urgent = days <= 1;
+                  return (
+                    <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#fff", borderRadius: 10, border: urgent ? "2px solid #ef4444" : "1px solid #eee", marginBottom: 8 }}>
+                      <span style={{ fontSize: 20 }}>{ti.emoji}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                        <div style={{ fontSize: 11, color: "#999" }}>
+                          {sub?.emoji} {sub?.label}
+                          {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 3).join(", ") : ""}
+                        </div>
                       </div>
+                      <div style={{ textAlign: "right", marginRight: 4 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                        {days > 0 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} day{days !== 1 ? "s" : ""}</div>}
+                      </div>
+                      {onEditEvent && <button onClick={() => onEditEvent(ev)} style={{ background: "#eee", border: "none", borderRadius: 6, width: 26, height: 26, color: "#666", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Edit">{"\u270e"}</button>}
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
-                      {days > 0 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} day{days !== 1 ? "s" : ""}</div>}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </>
           );
         })()}
+
+        {showEventsPanel && (
+          <EventsPanel
+            events={events}
+            profile={profile}
+            onAdd={() => { setShowEventsPanel(false); onAddEvent && onAddEvent(); }}
+            onEdit={ev => { setShowEventsPanel(false); onEditEvent && onEditEvent(ev); }}
+            onComplete={ev => { setShowEventsPanel(false); onCompleteEvent && onCompleteEvent(ev); }}
+            onDelete={onDeleteEvent}
+            onClose={() => setShowEventsPanel(false)}
+          />
+        )}
 
         <div className={s.sectionTitle} style={{ marginTop: 24 }}>All Session Summaries</div>
         {allSums.length === 0 ? <div className={s.emptyState}>No summaries yet.</div> :

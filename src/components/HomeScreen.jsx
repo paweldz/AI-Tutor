@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForSubject } from "../utils/topics.js";
 import { confidenceColor } from "../styles/tokens.js";
 import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
+import { EventsPanel } from "./EventsPanel.jsx";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent }) {
+  const [showEventsPanel, setShowEventsPanel] = useState(false);
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
@@ -148,38 +151,60 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
       {/* Upcoming Events — below tutor cards */}
       {(() => {
         const upcoming = getUpcoming(events || []);
-        if (!upcoming.length) return null;
         return (
           <div style={{ background: "#fff", borderRadius: 16, padding: "14px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase" }}>{"\ud83d\udcc5"} Upcoming Events</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => onAddEvent && onAddEvent()} style={{ padding: "4px 10px", borderRadius: 8, border: "1.5px solid #6366f1", background: "transparent", color: "#6366f1", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>+ Add</button>
+                <button onClick={() => setShowEventsPanel(true)} style={{ padding: "4px 10px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "transparent", color: "#888", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Manage All</button>
+              </div>
             </div>
-            {upcoming.slice(0, 5).map(ev => {
-              const sub = SUBJECTS[ev.subjectId];
-              const ti = eventTypeInfo(ev.type);
-              const days = daysUntil(ev.date);
-              const urgent = days <= 1;
-              return (
-                <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f5f5f5" }}>
-                  <span style={{ fontSize: 18 }}>{ti.emoji}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
-                    <div style={{ fontSize: 11, color: "#999" }}>
-                      {sub?.emoji} {sub?.label}
-                      {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 2).join(", ") : ""}
+            {upcoming.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0", color: "#bbb", fontSize: 12 }}>No upcoming events. Tap '+ Add' to create one.</div>
+            ) : (
+              upcoming.slice(0, 5).map(ev => {
+                const sub = SUBJECTS[ev.subjectId];
+                const ti = eventTypeInfo(ev.type);
+                const days = daysUntil(ev.date);
+                const urgent = days <= 1;
+                return (
+                  <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f5f5f5" }}>
+                    <span style={{ fontSize: 18 }}>{ti.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                      <div style={{ fontSize: 11, color: "#999" }}>
+                        {sub?.emoji} {sub?.label}
+                        {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 2).join(", ") : ""}
+                      </div>
                     </div>
+                    <div style={{ textAlign: "right", marginRight: 4 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                      {days > 1 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} days</div>}
+                    </div>
+                    {onEditEvent && <button onClick={() => onEditEvent(ev)} style={{ background: "#eee", border: "none", borderRadius: 6, width: 26, height: 26, color: "#666", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Edit">{"\u270e"}</button>}
                   </div>
-                  <div style={{ textAlign: "right", marginRight: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
-                    {days > 1 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} days</div>}
-                  </div>
-                  {onEditEvent && <button onClick={() => onEditEvent(ev)} style={{ background: "#eee", border: "none", borderRadius: 6, width: 26, height: 26, color: "#666", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Edit">{"\u270e"}</button>}
-                </div>
-              );
-            })}
+                );
+              })
+            )}
+            {upcoming.length > 5 && (
+              <button onClick={() => setShowEventsPanel(true)} style={{ width: "100%", padding: "8px 0", border: "none", background: "transparent", color: "#6366f1", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>View all {upcoming.length} events</button>
+            )}
           </div>
         );
       })()}
+
+      {showEventsPanel && (
+        <EventsPanel
+          events={events}
+          profile={profile}
+          onAdd={() => { setShowEventsPanel(false); onAddEvent && onAddEvent(); }}
+          onEdit={ev => { setShowEventsPanel(false); onEditEvent && onEditEvent(ev); }}
+          onComplete={ev => { setShowEventsPanel(false); onCompleteEvent && onCompleteEvent(ev); }}
+          onDelete={onDeleteEvent}
+          onClose={() => setShowEventsPanel(false)}
+        />
+      )}
 
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #eee" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udca1"} Tips</div>
