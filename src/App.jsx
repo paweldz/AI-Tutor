@@ -24,6 +24,7 @@ import { HomeScreen } from "./components/HomeScreen.jsx";
 import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
 import { ModalLayer } from "./components/ModalLayer.jsx";
+import { Calculator } from "./components/Calculator.jsx";
 import { ExamSetup } from "./components/ExamSetup.jsx";
 import { EventModal } from "./components/EventModal.jsx";
 import { EventComplete } from "./components/EventComplete.jsx";
@@ -59,6 +60,7 @@ export default function App() {
   const [completingEvent, setCompletingEvent] = useState(null);
   const [viewingChild, setViewingChild] = useState(null);
   const [showLinkChild, setShowLinkChild] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sendRef = useRef(null);
@@ -321,6 +323,14 @@ export default function App() {
         />
       )}
 
+      {showCalc && active && subject && (
+        <Calculator
+          subjectColor={subject.color}
+          onClose={() => setShowCalc(false)}
+          onSendToChat={(text) => { setInput(prev => prev ? prev + " " + text : text); inputRef.current?.focus(); }}
+        />
+      )}
+
       <Header
         profile={profile} active={active} subject={subject} curMats={curMats}
         examMode={examMode} examSession={examSession} voiceMode={voiceMode} convoMode={convoMode}
@@ -336,6 +346,7 @@ export default function App() {
         onCompleteEvent={ev => setCompletingEvent(ev)}
         onEditEvent={ev => setEditingEvent(ev)}
         onDeleteEvent={handleDeleteEvent}
+        onOpenCalculator={() => setShowCalc(true)}
       />
 
       {!active ? (

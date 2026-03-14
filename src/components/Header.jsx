@@ -215,6 +215,43 @@ function EventsMenu({ subject, events, onAddEvent, onCompleteEvent, onEditEvent,
   );
 }
 
+function ToolsMenu({ subject, onOpenCalculator }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const items = [
+    { emoji: "\ud83e\uddee", label: "Calculator", desc: "Simple & scientific — floats over chat", onClick: () => { onOpenCalculator(); setOpen(false); } },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button className="btn" onClick={() => setOpen(o => !o)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: "rgba(0,0,0,0.07)", color: "#666", fontSize: 11, fontWeight: 700 }}>
+        {"\ud83e\uddf0"} Tools {open ? "\u25b4" : "\u25be"}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: "1px solid rgba(0,0,0,0.08)", minWidth: 230, zIndex: 200, overflow: "hidden", animation: "ci .15s ease" }}>
+          {items.map((it, i) => (
+            <button key={i} onClick={it.onClick} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "transparent", border: "none", borderBottom: i < items.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontSize: 18 }}>{it.emoji}</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e" }}>{it.label}</div>
+                <div style={{ fontSize: 10, color: "#999" }}>{it.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Header({
   profile, active, subject, curMats, examMode, examSession, voiceMode, convoMode,
   msgs, sumLoading, autoSumming, dbConnected, totalMem, voiceCfg, micSupported,
@@ -222,7 +259,8 @@ export function Header({
   setModal, setShowExamSetup, onEndExam, setBuildQuizFor, setQuizSubject, setTopicsFor,
   setVoiceMode, setConvoMode,
   genSummary, setActive, switchUser, startMicRef, stopMic,
-  onAddEvent, onCompleteEvent, onEditEvent, onDeleteEvent
+  onAddEvent, onCompleteEvent, onEditEvent, onDeleteEvent,
+  onOpenCalculator,
 }) {
   const reminders = getReminders(events || []);
   return (
@@ -238,6 +276,7 @@ export function Header({
           <TestMenu subject={subject} examMode={examMode} examSession={examSession} setShowExamSetup={setShowExamSetup} onEndExam={onEndExam} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} />
           <NotesMenu subject={subject} teacherNoteCount={active ? getActiveNotes(teacherNotes, active).length : 0} studentNoteCount={active ? getStudentNoteCount(studentNotes, active) : 0} setModal={setModal} />
           <EventsMenu subject={subject} events={events || []} onAddEvent={onAddEvent} onCompleteEvent={onCompleteEvent} onEditEvent={onEditEvent} onDeleteEvent={onDeleteEvent} />
+          <ToolsMenu subject={subject} onOpenCalculator={onOpenCalculator} />
           <button className="btn" onClick={() => setModal("mats")} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: curMats.length ? subject.color : "rgba(0,0,0,0.07)", color: curMats.length ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcce"} {curMats.length ? curMats.length + " File" + (curMats.length > 1 ? "s" : "") : "Materials"}</button>
           {voiceCfg && <button className="btn" onClick={() => { setVoiceMode(v => { if (v) { stopSpeaking(); setConvoMode(false); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: voiceMode ? "#dc2626" : "rgba(0,0,0,0.07)", color: voiceMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700 }}>{voiceMode ? "\ud83d\udd0a Voice ON" : "\ud83c\udf99\ufe0f Voice"}</button>}
           {voiceMode && voiceCfg && micSupported && <button className="btn" onClick={() => { setConvoMode(v => { if (!v) { stopSpeaking(); setTimeout(() => startMicRef.current(), 200); } else { stopMic(); } return !v; }); }} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: convoMode ? "#059669" : "rgba(0,0,0,0.07)", color: convoMode ? "#fff" : "#666", fontSize: 11, fontWeight: 700, animation: convoMode ? "mp 2s ease infinite" : "none" }}>{convoMode ? "\ud83d\udd04 Conversation" : "\ud83d\udde3\ufe0f Converse"}</button>}
