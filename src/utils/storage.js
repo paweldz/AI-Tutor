@@ -38,12 +38,7 @@ export function migrateIfNeeded() {
   if (oldProf && !readJSON(KEYS.profile)) writeJSON(KEYS.profile, oldProf);
 }
 
-export function loadProfile()  {
-  const p = readJSON(KEYS.profile, null);
-  // Backfill role for profiles created before role selection was added
-  if (p && !p.role) { p.role = "student"; writeJSON(KEYS.profile, p); }
-  return p;
-}
+export function loadProfile()  { return readJSON(KEYS.profile, null); }
 export function saveProfile(p) { writeJSON(KEYS.profile, p); if (p?.name) setActiveStudent(p.name); }
 export function loadMemory() {
   let d = readJSON(studentKey("gcse_memory_v2"));
