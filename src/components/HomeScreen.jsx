@@ -37,50 +37,55 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
       {/* c. Study Time — full width */}
       {(() => {
         const activeDays = streakData.dates?.length || 0;
-        const allSessions = totalMem;
         const thisWeekDays = week.filter(d => d.active).length;
-        const history = xpData.history || [];
         const now = new Date();
         const monthStr = now.toISOString().slice(0, 7); // "YYYY-MM"
-        const xpThisWeek = history.filter(h => week.some(w => w.date === h.date)).reduce((a, h) => a + h.amount, 0);
-        const xpThisMonth = history.filter(h => h.date?.startsWith(monthStr)).reduce((a, h) => a + h.amount, 0);
-        // Estimate study time: ~1 min per 5 XP (messages=5xp, summaries=25xp, correct=20xp)
-        const minutesThisWeek = Math.round(xpThisWeek / 5);
-        const minutesThisMonth = Math.round(xpThisMonth / 5);
-        const minutesTotal = Math.round(xpData.total / 5);
+        const weekDates = new Set(week.map(w => w.date));
         const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
-        // Per-subject session counts this month
+
+        // Aggregate real study time from saved sessions
         const subs = mySubjects(profile);
+        let totalMinutes = 0;
+        let weekMinutes = 0;
+        let monthMinutes = 0;
+        let totalSessionCount = 0;
+
         const subjectMonthly = subs.map(s => {
           const sessions = getSessions(memory, s.id);
-          const monthSessions = sessions.filter(ses => {
-            const d = ses.date; // "14 March 2026" format
-            try { const pd = new Date(d); return pd.toISOString().slice(0, 7) === monthStr; } catch { return false; }
-          });
-          return { id: s.id, label: s.label, emoji: s.emoji, color: s.color, count: monthSessions.length };
-        }).filter(s => s.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
+          let subMonthMins = 0;
+          let subMonthCount = 0;
+          for (const ses of sessions) {
+            const mins = ses.studyTimeMinutes || 0;
+            totalMinutes += mins;
+            totalSessionCount++;
+            // Parse date — "14 March 2026" format
+            let isoDate = "";
+            try { isoDate = new Date(ses.date).toISOString().slice(0, 10); } catch { /* skip */ }
+            if (isoDate && weekDates.has(isoDate)) weekMinutes += mins;
+            if (isoDate?.startsWith(monthStr)) { monthMinutes += mins; subMonthMins += mins; subMonthCount++; }
+          }
+          return { id: s.id, label: s.label, emoji: s.emoji, color: s.color, count: subMonthCount, mins: subMonthMins };
+        }).filter(s => s.count > 0).sort((a, b) => b.mins - a.mins).slice(0, 3);
 
         return (
           <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 22 }}>{"\u23f1\ufe0f"}</span>
-              <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{allSessions} sessions across {activeDays} active days</div></div>
+              <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{totalSessionCount} sessions across {activeDays} active days</div></div>
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <div style={{ flex: 1, textAlign: "center", background: "#f0fdf4", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesThisWeek)}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(weekMinutes)}</div>
                 <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this week</div>
                 <div style={{ fontSize: 8, color: "#bbb" }}>{thisWeekDays} day{thisWeekDays !== 1 ? "s" : ""} active</div>
               </div>
               <div style={{ flex: 1, textAlign: "center", background: "#fefce8", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesThisMonth)}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(monthMinutes)}</div>
                 <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this month</div>
-                <div style={{ fontSize: 8, color: "#bbb" }}>{xpThisMonth} XP</div>
               </div>
               <div style={{ flex: 1, textAlign: "center", background: "#eff6ff", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesTotal)}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(totalMinutes)}</div>
                 <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>all time</div>
-                <div style={{ fontSize: 8, color: "#bbb" }}>{xpData.total} XP</div>
               </div>
             </div>
             {subjectMonthly.length > 0 && (
@@ -91,9 +96,9 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
                     <span style={{ fontSize: 14 }}>{s.emoji}</span>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a2e", width: 80 }}>{s.label}</div>
                     <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#eee" }}>
-                      <div style={{ height: "100%", borderRadius: 3, background: s.color, width: Math.min(100, (s.count / Math.max(...subjectMonthly.map(x => x.count))) * 100) + "%", transition: "width .5s" }} />
+                      <div style={{ height: "100%", borderRadius: 3, background: s.color, width: Math.min(100, (s.mins / Math.max(...subjectMonthly.map(x => x.mins), 1)) * 100) + "%", transition: "width .5s" }} />
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#666", width: 50, textAlign: "right" }}>{s.count} sess.</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#666", width: 50, textAlign: "right" }}>{fmtTime(s.mins)}</div>
                   </div>
                 ))}
               </div>

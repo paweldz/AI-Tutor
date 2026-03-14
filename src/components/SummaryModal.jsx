@@ -13,6 +13,15 @@ export function SummaryModal({ subject, sessionData, onClose }) {
         </div>
         <div style={{ overflowY: "auto", padding: "16px 20px", flex: 1 }}>
 
+          {/* Study time bar — always shown when available */}
+          {(sessionData?.studyTimeMinutes > 0 || sessionData?.sessionDurationMinutes > 0) && (
+            <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+              {sessionData.studyTimeMinutes > 0 && <StatPill label="Study time" value={sessionData.studyTimeMinutes + " min"} color="#6366f1" />}
+              {sessionData.sessionDurationMinutes > 0 && <StatPill label="Duration" value={sessionData.sessionDurationMinutes + " min"} color="#8b5cf6" />}
+              {sessionData.messageCount > 0 && <StatPill label="Messages" value={sessionData.messageCount} />}
+            </div>
+          )}
+
           {/* Session metrics bar */}
           {m && m.totalQuestions > 0 && (
             <div style={{ background: "#f8f9fa", borderRadius: 12, padding: "12px 16px", marginBottom: 14 }}>
@@ -25,7 +34,6 @@ export function SummaryModal({ subject, sessionData, onClose }) {
                 {m.skipped > 0 && <StatPill label="Skipped" value={m.skipped} color="#94a3b8" />}
                 <StatPill label="Accuracy" value={m.accuracyPct != null ? m.accuracyPct + "%" : "N/A"} color={m.accuracyPct >= 70 ? "#22c55e" : m.accuracyPct >= 40 ? "#f59e0b" : "#ef4444"} />
                 {m.avgHints != null && <StatPill label="Avg hints" value={m.avgHints} />}
-                {m.activeMinutes > 0 && <StatPill label="Active time" value={m.activeMinutes + " min"} />}
               </div>
             </div>
           )}

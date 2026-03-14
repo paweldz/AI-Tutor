@@ -81,6 +81,10 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = msgs.length;
+      // Always stamp study time — even for discussion-only sessions
+      const rawMetrics = getMetrics(active);
+      data.studyTimeMinutes = Math.round(rawMetrics.activeTimeMs / 60000);
+      data.sessionDurationMinutes = Math.round((Date.now() - rawMetrics.sessionStartedAt) / 60000);
       // Stamp exam info if this was an exam session
       if (examSession) {
         data.isExam = true;
@@ -121,6 +125,9 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = chatMsgs.length;
+      const rawAutoMetrics = getMetrics(sid);
+      data.studyTimeMinutes = Math.round(rawAutoMetrics.activeTimeMs / 60000);
+      data.sessionDurationMinutes = Math.round((Date.now() - rawAutoMetrics.sessionStartedAt) / 60000);
       if (examSession) {
         data.isExam = true;
         data.examMode = examSession.mode;

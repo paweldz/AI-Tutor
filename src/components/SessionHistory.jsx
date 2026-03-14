@@ -30,12 +30,19 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction, on
             {topics.length > 0 ? topics.join(", ") : summary.slice(0, 60) || "No summary"}
           </div>
         </div>
-        {m && m.totalQuestions > 0 && (
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: m.accuracyPct >= 70 ? "#22c55e" : m.accuracyPct >= 40 ? "#f59e0b" : "#ef4444" }}>{m.accuracyPct}%</div>
-            <div style={{ fontSize: 9, color: "#999" }}>{m.totalQuestions} Q</div>
-          </div>
-        )}
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          {m && m.totalQuestions > 0 ? (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 800, color: m.accuracyPct >= 70 ? "#22c55e" : m.accuracyPct >= 40 ? "#f59e0b" : "#ef4444" }}>{m.accuracyPct}%</div>
+              <div style={{ fontSize: 9, color: "#999" }}>{m.totalQuestions} Q{session.studyTimeMinutes > 0 ? " \u00b7 " + session.studyTimeMinutes + "m" : ""}</div>
+            </>
+          ) : session.studyTimeMinutes > 0 ? (
+            <>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#6366f1" }}>{session.studyTimeMinutes}m</div>
+              <div style={{ fontSize: 9, color: "#999" }}>study time</div>
+            </>
+          ) : null}
+        </div>
         <span style={{ fontSize: 12, color: "#ccc", flexShrink: 0, transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "none" }}>{"\u25bc"}</span>
       </button>
 
@@ -50,14 +57,22 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction, on
             </div>
           )}
 
+          {/* Study time — always shown */}
+          {(session.studyTimeMinutes > 0 || session.sessionDurationMinutes > 0) && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "8px 0 4px" }}>
+              {session.studyTimeMinutes > 0 && <Stat label="Study time" value={session.studyTimeMinutes + "m"} color="#6366f1" />}
+              {session.sessionDurationMinutes > 0 && <Stat label="Duration" value={session.sessionDurationMinutes + "m"} color="#8b5cf6" />}
+              {session.messageCount > 0 && <Stat label="Messages" value={session.messageCount} />}
+            </div>
+          )}
+
           {/* Stats bar */}
           {m && m.totalQuestions > 0 && (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "10px 0 8px" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "6px 0 8px" }}>
               <Stat label="Correct" value={m.correct} color="#22c55e" />
               <Stat label="Partial" value={m.partial} color="#f59e0b" />
               <Stat label="Wrong" value={m.wrong} color="#ef4444" />
               {m.avgHints != null && <Stat label="Avg hints" value={m.avgHints} />}
-              {m.activeMinutes > 0 && <Stat label="Time" value={m.activeMinutes + "m"} />}
             </div>
           )}
 
