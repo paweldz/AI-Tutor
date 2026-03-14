@@ -18,12 +18,16 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
   const parseSessionDate = (dateStr) => {
     if (!dateStr) return "";
-    const clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
-    const m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-    if (!m) return "";
-    const mo = MONTH_MAP[m[2].toLowerCase()];
-    if (!mo) return "";
-    return `${m[3]}-${mo}-${m[1].padStart(2, "0")}`;
+    // Already ISO format (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const clean = dateStr.replace(/^today[\s,]+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
+    // Day-first: "14 March 2026"
+    const dm = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (dm) { const mo = MONTH_MAP[dm[2].toLowerCase()]; if (mo) return `${dm[3]}-${mo}-${dm[1].padStart(2, "0")}`; }
+    // Month-first: "March 14, 2026" or "March 14 2026"
+    const md = clean.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+    if (md) { const mo = MONTH_MAP[md[1].toLowerCase()]; if (mo) return `${md[3]}-${mo}-${md[2].padStart(2, "0")}`; }
+    return "";
   };
 
   // Build local week/month comparators (independent of UTC-based weekHeatmap)
@@ -45,7 +49,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
     for (const ses of getSessions(memory, s.id)) {
       const mins = ses.studyTimeMinutes || 0;
       totalMinutes += mins;
-      const isoDate = parseSessionDate(ses.date);
+      const isoDate = ses.isoDate || parseSessionDate(ses.date);
       if (isoDate && localWeekDates.has(isoDate)) weekMinutes += mins;
       if (isoDate?.startsWith(monthStr)) monthMinutes += mins;
     }
