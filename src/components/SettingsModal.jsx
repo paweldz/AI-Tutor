@@ -2,7 +2,7 @@ import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
 const APP_VERSION = `3.6.0 (${__BUILD_TIME__})`;
 
-export function SettingsModal({ profile, onSave, onClose }) {
+export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
   const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });
   const [tab, setTab] = useState("profile");
   const upd = (field, val) => setP(x => ({ ...x, [field]: val }));
@@ -34,7 +34,14 @@ export function SettingsModal({ profile, onSave, onClose }) {
             {isParent && <div style={{ marginBottom: 18, padding: "10px 14px", borderRadius: 10, background: "#f0f9ff", border: "1px solid #bae6fd" }}><div style={{ fontSize: 12, fontWeight: 600, color: "#0369a1" }}>{"\ud83d\udc68\u200d\ud83d\udc67"} Parent Account</div><div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>You can view your children's progress from the dashboard.</div></div>}
             {!isParent && <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Year</div><div style={{ display: "flex", gap: 8 }}>{YEARS.map(y => <button key={y} onClick={() => upd("year", y)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.year === y ? "#f0c040" : "#e0e0e0"), background: p.year === y ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.year === y ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{y}</button>)}</div></div>}
             {!isParent && <div style={{ marginBottom: 18 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>Tier</div><div style={{ display: "flex", gap: 8 }}>{TIERS.map(t => <button key={t} onClick={() => upd("tier", t)} style={{ flex: 1, padding: 10, borderRadius: 10, border: "2px solid " + (p.tier === t ? "#f0c040" : "#e0e0e0"), background: p.tier === t ? "#fef9e7" : "#fff", color: "#333", fontWeight: p.tier === t ? 700 : 400, cursor: "pointer", fontSize: 13 }}>{t}</button>)}</div></div>}
-            <div style={{ marginTop: 24, padding: "12px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee" }}><div style={{ fontSize: 11, color: "#bbb" }}>GCSE Tutor Hub v{APP_VERSION}</div></div>
+            {!isParent && onOpenMemory && <div style={{ marginTop: 24 }}>
+              <button onClick={onOpenMemory} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "2px solid #e0e0e0", background: "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+                <span style={{ fontSize: 20 }}>{"\ud83e\udde0"}</span>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>Memory Manager</div><div style={{ fontSize: 11, color: "#999" }}>Export, import, or clear saved sessions</div></div>
+                <span style={{ color: "#ccc", fontSize: 14 }}>{"\u203a"}</span>
+              </button>
+            </div>}
+            <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee" }}><div style={{ fontSize: 11, color: "#bbb" }}>GCSE Tutor Hub v{APP_VERSION}</div></div>
           </div>)}
           {tab === "subjects" && (<div>
             <div style={{ fontSize: 12, color: "#777", marginBottom: 14 }}>Tap to add or remove subjects. Changes take effect when you save.</div>

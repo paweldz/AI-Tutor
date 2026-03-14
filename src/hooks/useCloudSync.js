@@ -61,13 +61,18 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
         }
 
         // ── Phase 2: Load memory, XP, streaks in parallel ──
+        // Prefer memory from tutor_settings (includes deletes/clears),
+        // fall back to row-by-row reconstruction from tutor_memory.
         const [cloud, cloudXP, cloudStreaks] = await Promise.all([
-          sbLoad().catch(e => { console.warn("[cloudSync] sbLoad threw:", e); return null; }),
+          settings?.memory ? Promise.resolve(null) : sbLoad().catch(e => { console.warn("[cloudSync] sbLoad threw:", e); return null; }),
           sbLoadXP().catch(e => { console.warn("[cloudSync] sbLoadXP threw:", e); return null; }),
           sbLoadStreaks().catch(e => { console.warn("[cloudSync] sbLoadStreaks threw:", e); return null; }),
         ]);
 
-        if (cloud) {
+        if (settings?.memory) {
+          setMemory(settings.memory);
+          setDbConnected(true);
+        } else if (cloud) {
           setMemory(cloud);
           setDbConnected(true);
         }
