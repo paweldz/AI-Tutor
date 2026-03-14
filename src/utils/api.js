@@ -4,6 +4,7 @@
 
 import { SUBJECTS } from "../config/subjects.js";
 import { daysUntil, eventTypeInfo } from "./events.js";
+import { scoreToGrade, gradeEstimateSummary } from "./grades.js";
 
 export const MODEL = "claude-sonnet-4-5-20250929";
 
@@ -103,9 +104,10 @@ export async function apiSummary(systemPrompt, chatMessages, metricsBlock = "") 
   }
 }
 
-export function buildSystemPrompt(sid, profile, summaries, mats, examSession, character, events) {
+export function buildSystemPrompt(sid, profile, summaries, mats, examSession, character, events, gradeEstimate) {
   const sub = SUBJECTS[sid]; if (!sub) return "";
   const board = profile.examBoards?.[sid] || "";
+  const targetGrade = profile.targetGrades?.[sid];
   const boardNote = !board ? "Exam board unknown \u2014 cover broadly. Encourage student to find out." : "";
   const matBlock = mats?.length ? `\n\nTEACHER MATERIALS (${mats.length} file${mats.length > 1 ? "s" : ""}): ${mats.map(m => m.name).join(", ")}. Use as primary reference.` : "";
   const charBlock = character ? `\n\nTUTOR CHARACTER: ${character}` : "";
@@ -160,15 +162,35 @@ The student has uploaded a past paper. You MUST:
       eventsBlock += "\n\nRECENT TEST RESULTS:\n" + completed.map(e => {
         const ti = eventTypeInfo(e.type);
         let line = `- ${ti.label}: "${e.title}"`;
-        if (e.score != null && e.maxScore) line += ` — ${e.score}/${e.maxScore} (${Math.round(e.score / e.maxScore * 100)}%)`;
+        if (e.score != null && e.maxScore) {
+          line += ` — ${e.score}/${e.maxScore} (${Math.round(e.score / e.maxScore * 100)}%)`;
+          const gr = scoreToGrade(e.score, e.maxScore, board, profile.tier);
+          if (gr) line += ` [Grade ${gr.grade}]`;
+        }
         if (e.reflection?.toImprove) line += ` — needs work on: ${e.reflection.toImprove}`;
         return line;
       }).join("\n") + "\nUse these results to inform your teaching focus.";
     }
   }
 
+  // Grade context
+  let gradeBlock = "";
+  if (targetGrade || gradeEstimate) {
+    gradeBlock = "\n\nGRADE CONTEXT:";
+    if (targetGrade) gradeBlock += ` Target grade: ${targetGrade}.`;
+    if (gradeEstimate) gradeBlock += ` ${gradeEstimateSummary(gradeEstimate)}.`;
+    if (targetGrade && gradeEstimate) {
+      const gap = targetGrade - gradeEstimate.point;
+      if (gap > 0) gradeBlock += ` The student is ${gap} grade${gap > 1 ? "s" : ""} below their target — push them with Grade ${targetGrade}-level questions and mark-scheme precision.`;
+      else if (gap === 0) gradeBlock += " The student is at their target — maintain this level and build consistency.";
+      else gradeBlock += " The student is exceeding their target — consider stretching them with higher-grade content.";
+    } else if (targetGrade) {
+      gradeBlock += ` Tailor content difficulty, vocabulary, and question complexity to Grade ${targetGrade} standard. For grades 7-9, expect deeper analysis, precise terminology, and extended responses. For grades 4-5, focus on clear foundations and structured approaches.`;
+    }
+  }
+
   return examPrefix +
-    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${histBlock}${matBlock}\n\nASSESSMENT LOGGING (CRITICAL): You MUST call the log_assessment tool EVERY TIME the student answers a question or attempts a problem. Do this IMMEDIATELY after evaluating their answer, before your response text. Never skip this — it feeds the honest progress tracker. Include the specific sub-topic (e.g. "expanding double brackets" not "algebra"), accurate result, exact hint count, and whether they explained their reasoning.\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier) + eventsBlock;
+    `You are ${sub.tutor.name}, GCSE ${sub.label} tutor.\nSTUDENT: ${profile.name} | ${profile.year} | ${profile.tier} | Board: ${board || "not confirmed"} ${boardNote}${charBlock}${gradeBlock}${histBlock}${matBlock}\n\nASSESSMENT LOGGING (CRITICAL): You MUST call the log_assessment tool EVERY TIME the student answers a question or attempts a problem. Do this IMMEDIATELY after evaluating their answer, before your response text. Never skip this — it feeds the honest progress tracker. Include the specific sub-topic (e.g. "expanding double brackets" not "algebra"), accurate result, exact hint count, and whether they explained their reasoning.\n\nEMOTIONAL AWARENESS: If frustrated, slow down, validate, use analogies. If confident, push harder. Never make student feel stupid.\nEXAM PRACTICE: student attempts first \u2192 mark (X/Y marks because...) \u2192 explain mark scheme \u2192 model answer.\nTRACKING: Track topics/confidence/errors. On "how am I doing?" give honest assessment with confidence % per topic.` + sub.systemPromptSpecific(board, profile.tier) + eventsBlock;
 }
 
 export function buildApiMsgs(mats, convMsgs, examSession) {

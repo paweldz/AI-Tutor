@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
+import { gradesForTier, GRADE_INFO } from "../utils/grades.js";
 import s from "./Setup.module.css";
 
 export function Setup({ onDone }) {
   const [phase, setPhase] = useState("role");
-  const [p, setP] = useState({ name: "", role: "student", year: "", tier: "", examBoards: {}, subjects: [], tutorCharacters: {} });
+  const [p, setP] = useState({ name: "", role: "student", year: "", tier: "", examBoards: {}, targetGrades: {}, subjects: [], tutorCharacters: {} });
   const [boardIdx, setBoardIdx] = useState(0);
+  const [gradeIdx, setGradeIdx] = useState(0);
   const upd = (f, v) => setP(x => ({ ...x, [f]: v }));
   const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(si => si !== id) : [...x.subjects, id] }));
 
@@ -24,6 +26,14 @@ export function Setup({ onDone }) {
 
   function nextBoard() {
     if (boardIdx < selectedSubs.length - 1) setBoardIdx(i => i + 1);
+    else { setGradeIdx(0); setPhase("grades"); }
+  }
+
+  const gradeSub = selectedSubs[gradeIdx];
+  const availableGrades = gradesForTier(p.tier);
+
+  function nextGrade() {
+    if (gradeIdx < selectedSubs.length - 1) setGradeIdx(i => i + 1);
     else onDone(p);
   }
 
@@ -115,8 +125,28 @@ export function Setup({ onDone }) {
     </div>
     <div className={s.boardBtnRow}>
       <button className={`hb ${s.skipBtn}`} onClick={nextBoard}>Skip</button>
-      <button className={`hb ${s.nextBtn}`} onClick={nextBoard}>
-        {boardIdx === selectedSubs.length - 1 ? "Meet Your Tutors \u2192" : "Next \u2192"}
+      <button className={`hb ${s.nextBtn}`} onClick={nextBoard}>Next {"\u2192"}</button>
+    </div>
+  </>);
+
+  if (phase === "grades" && gradeSub) return wrap(<>
+    <div className={s.tag}>TARGET GRADES {"\u00b7"} {gradeIdx + 1}/{selectedSubs.length} {"\u00b7"} optional</div>
+    <h2 className={s.heading}>{gradeSub.emoji} {gradeSub.label} target grade?</h2>
+    <p className={s.subtitleShort}>Your tutor will tailor difficulty to help you reach this grade.</p>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
+      {availableGrades.map(g => {
+        const info = GRADE_INFO[g];
+        const on = p.targetGrades[gradeSub.id] === g;
+        return <div key={g} className={`so ${on ? s.boardOn : s.boardOff}`} onClick={() => setP(x => ({ ...x, targetGrades: { ...x.targetGrades, [gradeSub.id]: on ? null : g } }))} style={{ borderColor: on ? info.color : undefined, background: on ? info.color + "18" : undefined, textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: on ? info.color : "#666" }}>{g}</div>
+          <div style={{ fontSize: 10, color: on ? info.color : "#999", fontWeight: 600 }}>{info.descriptor}</div>
+        </div>;
+      })}
+    </div>
+    <div className={s.boardBtnRow}>
+      <button className={`hb ${s.skipBtn}`} onClick={nextGrade}>Skip</button>
+      <button className={`hb ${s.nextBtn}`} onClick={nextGrade}>
+        {gradeIdx === selectedSubs.length - 1 ? "Meet Your Tutors \u2192" : "Next \u2192"}
       </button>
     </div>
   </>);

@@ -109,7 +109,7 @@ export default function App() {
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
     examSession, voiceMode, convoMode, teacherNotes, studentNotes, events,
-    input, setInput, setMemory, setTopicData, gainXP,
+    input, setInput, setMemory, setTopicData, gainXP, topicData, customTopics,
   });
   useEffect(() => { sendRef.current = send; });
 
@@ -315,6 +315,7 @@ export default function App() {
       {completingEvent && (
         <EventComplete
           event={completingEvent}
+          profile={profile}
           onComplete={handleCompleteEvent}
           onClose={() => setCompletingEvent(null)}
         />

@@ -3,7 +3,9 @@ import { SUBJECTS } from "../config/subjects.js";
 import { loadChildData, parentAddEvent, parentUpdateChildEvent, parentDeleteChildEvent } from "../utils/parentSync.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { confidenceColor } from "../styles/tokens.js";
-import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo, createEvent } from "../utils/events.js";
+import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
+import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO, scoreToGrade } from "../utils/grades.js";
+import { getTopicsForSubject } from "../utils/topics.js";
 import { ViewAsChildBanner } from "./ViewAsChildBanner.jsx";
 import { EventsPanel } from "./EventsPanel.jsx";
 import { EventModal } from "./EventModal.jsx";
@@ -102,18 +104,41 @@ export function ParentChildView({ child, onBack }) {
             const sessions = memory.subjects[sub.id] || [];
             const last = sessions[sessions.length - 1];
             const confScores = last?.confidenceScores || {};
-            const topicData = data.topics?.[sub.id] || {};
-            const topicsStudied = Object.values(topicData).filter(v => v.studied > 0).length;
+            const subTopicData = data.topics?.[sub.id] || {};
+            const topicsStudied = Object.values(subTopicData).filter(v => v.studied > 0).length;
             const bd = profile.examBoards?.[sub.id];
+            const targetG = profile.targetGrades?.[sub.id];
+            const allTopics = getTopicsForSubject(sub.id, profile, {});
+            const estG = estimateGrade({ subjects: memory.subjects }, data.events, data.topics, profile, sub.id, allTopics);
 
             return (
               <div key={sub.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
                 <div style={{ background: sub.gradient, padding: "18px 16px 14px" }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>{sub.emoji}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ fontSize: 28, marginBottom: 4 }}>{sub.emoji}</div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {targetG && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }} title={"Target: Grade " + targetG}>{"\ud83c\udfaf"}{targetG}</div>}
+                      {estG && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }} title={"Estimated: Grade " + formatGradeRange(estG)}>{formatGradeRange(estG)}</div>}
+                    </div>
+                  </div>
                   <div style={{ fontFamily: "'Playfair Display',serif", color: "#fff", fontSize: 16, fontWeight: 700 }}>{sub.tutor.name}</div>
                   <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{sub.label}{bd ? " \u00b7 " + bd : ""}</div>
                 </div>
                 <div style={{ background: "#fff", padding: "12px 16px" }}>
+                  {/* Grade status row */}
+                  {(targetG || estG) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "6px 10px", borderRadius: 8, background: "#f8f9fa" }}>
+                      {targetG && <div style={{ fontSize: 10, color: "#666" }}>Target: <span style={{ fontWeight: 700, color: gradeColor(targetG) }}>Grade {targetG}</span></div>}
+                      {targetG && estG && <span style={{ color: "#ddd" }}>{"\u00b7"}</span>}
+                      {estG && <div style={{ fontSize: 10, color: "#666" }}>Est: <span style={{ fontWeight: 700, color: gradeColor(estG.point) }}>Grade {formatGradeRange(estG)}</span></div>}
+                      {targetG && estG && (() => {
+                        const gap = targetG - estG.point;
+                        const arrow = gap > 0 ? "\u2191" : gap < 0 ? "\u2713" : "\u2713";
+                        const gapColor = gap > 0 ? "#ef4444" : "#22c55e";
+                        return <div style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: gapColor }}>{gap > 0 ? gap + " to go " + arrow : "On track " + arrow}</div>;
+                      })()}
+                    </div>
+                  )}
                   <div style={{ fontSize: 12, fontWeight: 700, color: sub.color, marginBottom: 4 }}>
                     {sessions.length === 0 ? "No sessions yet" : "\ud83e\udde0 " + sessions.length + " session" + (sessions.length > 1 ? "s" : "")}
                   </div>

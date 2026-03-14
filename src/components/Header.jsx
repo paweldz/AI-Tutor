@@ -229,7 +229,7 @@ export function Header({
     <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(0,0,0,0.07)", position: "sticky", top: 0, zIndex: 100 }}>
       {active && <button onClick={() => setActive(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#666", padding: "4px 8px", borderRadius: 8 }} aria-label="Back">{"\u2190"}</button>}
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 10, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase" }}>{profile.name}{profile.year ? " \u00b7 " + profile.year : ""}{profile.tier ? " \u00b7 " + profile.tier : ""}{autoSumming ? " \u00b7 saving memory..." : ""}</div>
+        <div style={{ fontSize: 10, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase" }}>{profile.name}{profile.year ? " \u00b7 " + profile.year : ""}{profile.tier ? " \u00b7 " + profile.tier : ""}{active && profile.targetGrades?.[active] ? " \u00b7 Target: Grade " + profile.targetGrades[active] : ""}{autoSumming ? " \u00b7 saving memory..." : ""}</div>
         <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>{active ? subject.emoji + " " + subject.tutor.name : "Your Tutor Hub by Korona Lab \u00ae"}</div>
       </div>
       {active && (

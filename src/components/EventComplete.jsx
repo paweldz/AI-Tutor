@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SUBJECTS } from "../config/subjects.js";
 import { eventTypeInfo } from "../utils/events.js";
+import { scoreToGrade } from "../utils/grades.js";
 
 const ASSESSMENTS = [
   { value: 1, emoji: "\ud83d\ude29", label: "Struggled" },
@@ -10,10 +11,12 @@ const ASSESSMENTS = [
   { value: 5, emoji: "\ud83e\udd29", label: "Aced it" },
 ];
 
-export function EventComplete({ event, onComplete, onClose }) {
+export function EventComplete({ event, profile, onComplete, onClose }) {
   const sub = SUBJECTS[event.subjectId];
   const typeInfo = eventTypeInfo(event.type);
   const color = sub?.color || "#6366f1";
+  const board = profile?.examBoards?.[event.subjectId] || "";
+  const tier = profile?.tier || "Higher";
 
   const [score, setScore] = useState("");
   const [maxScore, setMaxScore] = useState("");
@@ -54,11 +57,20 @@ export function EventComplete({ event, onComplete, onClose }) {
               <span style={{ color: "#999", fontSize: 16 }}>/</span>
               <input type="number" value={maxScore} onChange={e => setMaxScore(e.target.value)} placeholder="Max" min="1" style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "2px solid #eee", fontSize: 14, outline: "none" }} />
             </div>
-            {score !== "" && maxScore !== "" && Number(maxScore) > 0 && (
-              <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color }}>
-                {Math.round(Number(score) / Number(maxScore) * 100)}%
-              </div>
-            )}
+            {score !== "" && maxScore !== "" && Number(maxScore) > 0 && (() => {
+              const pct = Math.round(Number(score) / Number(maxScore) * 100);
+              const gr = scoreToGrade(Number(score), Number(maxScore), board, tier);
+              return (
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color }}>{pct}%</span>
+                  {gr && gr.grade !== "U" && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: gr.info.color, background: gr.info.color + "15", padding: "2px 8px", borderRadius: 6 }}>
+                      Grade {gr.grade} ({gr.info.descriptor})
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Self assessment */}

@@ -5,6 +5,7 @@ import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForSubject } from "../utils/topics.js";
 import { confidenceColor } from "../styles/tokens.js";
 import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
+import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO } from "../utils/grades.js";
 import { EventsPanel } from "./EventsPanel.jsx";
 
 export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent }) {
@@ -120,14 +121,21 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           const avg = avgConfidence(conf);
           const confTopics = Object.entries(conf).slice(0, 4);
           const tpct = topicPct(topicData, t.id, profile, customTopics);
-          const tTotal = getTopicsForSubject(t.id, profile, customTopics).length;
+          const allTopics = getTopicsForSubject(t.id, profile, customTopics);
+          const tTotal = allTopics.length;
           const tDone = Object.values(getTopicProgress(topicData, t.id)).filter(v => v.studied > 0).length;
+          const targetG = profile.targetGrades?.[t.id];
+          const estG = estimateGrade(memory, events, topicData, profile, t.id, allTopics);
           return (
             <div key={t.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both` }}>
               <div className="card" onClick={() => onSelectSubject(t.id)} style={{ background: t.gradient, padding: "18px 16px 14px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>
-                  {avg >= 0 && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }}>{avg}%</div>}
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    {targetG && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }} title={"Target: Grade " + targetG}>{"\ud83c\udfaf"}{targetG}</div>}
+                    {estG && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }} title={"Estimated: Grade " + formatGradeRange(estG)}>{formatGradeRange(estG)}</div>}
+                    {!targetG && !estG && avg >= 0 && <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }}>{avg}%</div>}
+                  </div>
                 </div>
                 <div style={{ fontFamily: "'Playfair Display',serif", color: "#fff", fontSize: 16, fontWeight: 700 }}>{t.tutor.name}</div>
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{t.label}{bd ? " \u00b7 " + bd : ""}</div>

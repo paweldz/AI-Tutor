@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
+import { gradesForTier, GRADE_INFO } from "../utils/grades.js";
 const APP_VERSION = `3.6.0 (${__BUILD_TIME__})`;
 
 export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
-  const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });
+  const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, targetGrades: { ...(profile.targetGrades || {}) }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });
   const [tab, setTab] = useState("profile");
   const upd = (field, val) => setP(x => ({ ...x, [field]: val }));
   const updBoard = (sid, val) => setP(x => ({ ...x, examBoards: { ...x.examBoards, [sid]: val } }));
+  const updGrade = (sid, val) => setP(x => ({ ...x, targetGrades: { ...x.targetGrades, [sid]: val } }));
   const updChar = (sid, val) => setP(x => ({ ...x, tutorCharacters: { ...x.tutorCharacters, [sid]: val } }));
   const toggleSub = id => setP(x => ({ ...x, subjects: x.subjects.includes(id) ? x.subjects.filter(s => s !== id) : [...x.subjects, id] }));
   function save() { onSave(p); }
@@ -60,11 +62,28 @@ export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
             const sub = SUBJECTS[tab]; if (!sub) return null;
             const board = p.examBoards?.[tab] || "";
             const char = p.tutorCharacters?.[tab] || "";
+            const targetGrade = p.targetGrades?.[tab] || null;
+            const availGrades = gradesForTier(p.tier);
             return (<div>
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>{sub.emoji} {sub.label} Exam Board</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>{BOARDS.map(b => <button key={b} onClick={() => updBoard(tab, board === b ? "" : b)} style={{ padding: 10, borderRadius: 10, border: "2px solid " + (board === b ? sub.color : "#e0e0e0"), background: board === b ? sub.color + "15" : "#fff", color: board === b ? sub.color : "#666", fontWeight: board === b ? 700 : 400, cursor: "pointer", fontSize: 12 }}>{b}</button>)}</div>
                 {board && <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>Tap again to deselect</div>}
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>{"\ud83c\udfaf"} Target Grade</div>
+                <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>Your tutor will tailor difficulty and depth to help you reach this grade.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+                  {availGrades.map(g => {
+                    const info = GRADE_INFO[g];
+                    const on = targetGrade === g;
+                    return <button key={g} onClick={() => updGrade(tab, on ? null : g)} style={{ padding: "8px 4px", borderRadius: 10, border: "2px solid " + (on ? info.color : "#e0e0e0"), background: on ? info.color + "15" : "#fff", cursor: "pointer", textAlign: "center" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: on ? info.color : "#666" }}>{g}</div>
+                      <div style={{ fontSize: 9, color: on ? info.color : "#999", fontWeight: 600 }}>{info.descriptor}</div>
+                    </button>;
+                  })}
+                </div>
+                {targetGrade && <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>Tap again to remove target</div>}
               </div>
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 6 }}>{sub.tutor.name}&rsquo;s Character</div>
