@@ -85,7 +85,8 @@ export function useChat({
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = msgs.length;
       // Reliable ISO date for week/month filtering (independent of Claude's date string)
-      data.isoDate = new Date().toISOString().slice(0, 10);
+      const _now = new Date();
+      data.isoDate = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
       // Always stamp study time — even for discussion-only sessions
       const rawMetrics = getMetrics(active);
       data.studyTimeMinutes = Math.round(rawMetrics.activeTimeMs / 60000);
@@ -99,7 +100,7 @@ export function useChat({
         data.examDuration = Math.round((Date.now() - examSession.startedAt) / 60000);
       }
       setMemory(prev => addSessionToMem(prev, active, data));
-      sbSave(active, data.date, JSON.stringify(data));
+      sbSave(active, data.isoDate || data.date, JSON.stringify(data));
       savedRef.current[active] = msgs.length;
       gainXP(25, "Session summary");
       if (data.confidenceScores) {
@@ -131,7 +132,8 @@ export function useChat({
       if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
       data.sessionId = crypto.randomUUID();
       data.savedMsgCount = chatMsgs.length;
-      data.isoDate = new Date().toISOString().slice(0, 10);
+      const _now = new Date();
+      data.isoDate = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
       const rawAutoMetrics = getMetrics(sid);
       data.studyTimeMinutes = Math.round(rawAutoMetrics.activeTimeMs / 60000);
       data.sessionDurationMinutes = Math.round((Date.now() - rawAutoMetrics.sessionStartedAt) / 60000);
@@ -143,7 +145,7 @@ export function useChat({
         data.examDuration = Math.round((Date.now() - examSession.startedAt) / 60000);
       }
       setMemory(prev => addSessionToMem(prev, sid, data));
-      sbSave(sid, data.date, JSON.stringify(data));
+      sbSave(sid, data.isoDate || data.date, JSON.stringify(data));
       savedRef.current[sid] = chatMsgs.length;
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }

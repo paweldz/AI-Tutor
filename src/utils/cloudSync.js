@@ -60,6 +60,31 @@ export async function sbLoad() {
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
 }
 
+/** Load sessionId → created_at date map from tutor_memory for accurate isoDate patching */
+export async function sbLoadSessionDates() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("tutor_memory")
+      .select("subject, summary, created_at");
+    if (error || !data?.length) return null;
+    const dateMap = {};
+    for (const row of data) {
+      if (!row.created_at) continue;
+      const isoDate = row.created_at.slice(0, 10);
+      let parsed; try { parsed = JSON.parse(row.summary); } catch { continue; }
+      if (parsed?.sessionId) {
+        dateMap[parsed.sessionId] = isoDate;
+      } else {
+        // Fallback key: subject + date + text prefix
+        const key = row.subject + "|" + (parsed?.date || "") + "|" + (parsed?.rawSummaryText || "").slice(0, 60);
+        dateMap[key] = isoDate;
+      }
+    }
+    return dateMap;
+  } catch (e) { console.warn("[cloudSync] sbLoadSessionDates failed:", e); return null; }
+}
+
 /** Delete a single session from Supabase by matching subject + sessionId or date+summary */
 export async function sbDeleteSession(subject, session) {
   if (!supabase) return false;
