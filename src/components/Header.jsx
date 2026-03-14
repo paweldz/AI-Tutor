@@ -153,10 +153,10 @@ export function Header({
         </div>
       )}
       <div style={{ display: "flex", gap: 5 }}>
-        {dbConnected && <div style={{ padding: "6px 10px", borderRadius: 20, background: "#1a1a2e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>{"\u2601\ufe0f"} Synced</div>}
-        <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\u2699\ufe0f"}</button>
-        <button className="btn" onClick={() => setModal("dash")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udcca"} Stats</button>
-        <button className="btn" onClick={switchUser} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{"\ud83d\udc64"}</button>
+        {!active && <button className="btn" onClick={() => setModal("dash")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Stats">{"\ud83d\udcca"}</button>}
+        <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Settings">{"\u2699\ufe0f"}</button>
+        <div style={{ padding: "6px 10px", borderRadius: 20, background: dbConnected ? "#059669" : "#dc2626", color: "#fff", fontSize: 13, display: "flex", alignItems: "center" }} title={dbConnected ? "Synced" : "Not synced"}>{"\u2601\ufe0f"}</div>
+        <button className="btn" onClick={switchUser} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Switch User">{"\ud83d\udc64"}</button>
       </div>
     </div>
   );
