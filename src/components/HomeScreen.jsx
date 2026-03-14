@@ -45,11 +45,13 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
   const subs = mySubjects(profile);
   let totalMinutes = 0, weekMinutes = 0, monthMinutes = 0;
+  console.log("[StudyTime] monthStr:", monthStr, "weekDates:", [...localWeekDates]);
   for (const s of subs) {
     for (const ses of getSessions(memory, s.id)) {
       const mins = ses.studyTimeMinutes || 0;
       totalMinutes += mins;
       const isoDate = ses.isoDate || parseSessionDate(ses.date);
+      console.log("[StudyTime]", s.id, "| date:", ses.date, "| isoDate:", ses.isoDate, "| parsed:", parseSessionDate(ses.date), "| resolved:", isoDate, "| mins:", mins);
       if (isoDate && localWeekDates.has(isoDate)) weekMinutes += mins;
       if (isoDate?.startsWith(monthStr)) monthMinutes += mins;
     }
