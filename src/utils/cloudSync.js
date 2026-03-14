@@ -56,6 +56,35 @@ export async function sbLoad() {
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
 }
 
+/** Delete a single session from Supabase by matching subject + date + summary prefix */
+export async function sbDeleteSession(subject, session) {
+  if (!supabase) return;
+  try {
+    // Try matching by sessionId stored in the summary JSON first
+    const { data } = await supabase.from("tutor_memory")
+      .select("id, summary")
+      .eq("subject", subject);
+    if (!data) return;
+    for (const row of data) {
+      let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
+      if (parsed?.sessionId && parsed.sessionId === session.sessionId) {
+        await supabase.from("tutor_memory").delete().eq("id", row.id);
+        return;
+      }
+    }
+    // Fallback: match by date + text prefix
+    for (const row of data) {
+      let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
+      const rowText = parsed?.rawSummaryText || row.summary || "";
+      const sessText = session.rawSummaryText || "";
+      if (row.session_date === session.date && rowText.slice(0, 80) === sessText.slice(0, 80)) {
+        await supabase.from("tutor_memory").delete().eq("id", row.id);
+        return;
+      }
+    }
+  } catch (e) { console.warn("[cloudSync] sbDeleteSession failed:", e); }
+}
+
 export function mergeMemory(local, cloud) {
   if (!cloud) return local;
   const merged = { version: 2, subjects: { ...local.subjects } };

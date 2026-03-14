@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getSessions } from "../utils/storage.js";
 import { confidenceColor } from "../styles/tokens.js";
 
-function SessionCard({ session, index, subject, expanded, onToggle, onAction }) {
+function SessionCard({ session, index, subject, expanded, onToggle, onAction, onDelete, confirming }) {
   const m = session.metrics;
   const depth = session.topicDepth;
   const conf = session.confidenceScores;
@@ -78,7 +78,7 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction }) 
           )}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {topics.length > 0 && (
               <ActionBtn label={"Continue: " + topics[0]} color={subject.color} onClick={() => onAction("continue", topics[0])} />
             )}
@@ -89,6 +89,7 @@ function SessionCard({ session, index, subject, expanded, onToggle, onAction }) 
               <ActionBtn label="Quiz me on this" color="#8b5cf6" onClick={() => onAction("quiz", topics)} />
             )}
             <ActionBtn label="Pick up where I left off" color="#6b7280" onClick={() => onAction("continue_session", session)} />
+            <button onClick={onDelete} title={confirming ? "Click again to confirm" : "Delete this session"} style={{ marginLeft: "auto", padding: "5px 10px", borderRadius: 8, border: confirming ? "1.5px solid #ef4444" : "1.5px solid #e5e7eb", background: confirming ? "#fef2f2" : "transparent", color: confirming ? "#ef4444" : "#aaa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{confirming ? "Confirm delete?" : "\ud83d\uddd1\ufe0f Delete"}</button>
           </div>
         </div>
       )}
@@ -113,12 +114,23 @@ function ActionBtn({ label, color, onClick }) {
   );
 }
 
-export function SessionHistory({ subject, memory, onAction, onClose }) {
+export function SessionHistory({ subject, memory, onAction, onDelete, onClose }) {
   const sessions = getSessions(memory, subject.id);
   const [expandedIdx, setExpandedIdx] = useState(sessions.length > 0 ? sessions.length - 1 : null);
+  const [confirmIdx, setConfirmIdx] = useState(null);
 
   // Show newest first
   const reversed = [...sessions].reverse();
+
+  function handleDelete(realIdx) {
+    if (confirmIdx === realIdx) {
+      onDelete(subject.id, realIdx, sessions[realIdx]);
+      setConfirmIdx(null);
+      if (expandedIdx === realIdx) setExpandedIdx(null);
+    } else {
+      setConfirmIdx(realIdx);
+    }
+  }
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(10,10,20,0.85)", backdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -144,13 +156,15 @@ export function SessionHistory({ subject, memory, onAction, onClose }) {
               const realIdx = sessions.length - 1 - i;
               return (
                 <SessionCard
-                  key={realIdx}
+                  key={session.sessionId || realIdx}
                   session={session}
                   index={realIdx}
                   subject={subject}
                   expanded={expandedIdx === realIdx}
-                  onToggle={() => setExpandedIdx(expandedIdx === realIdx ? null : realIdx)}
+                  onToggle={() => { setExpandedIdx(expandedIdx === realIdx ? null : realIdx); setConfirmIdx(null); }}
                   onAction={onAction}
+                  onDelete={() => handleDelete(realIdx)}
+                  confirming={confirmIdx === realIdx}
                 />
               );
             })

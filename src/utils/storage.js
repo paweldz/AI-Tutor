@@ -51,6 +51,12 @@ export function addSessionToMem(mem, sid, data) {
   const u = { ...mem, subjects: { ...mem.subjects, [sid]: [...(mem.subjects[sid] || []), data] } };
   saveMemory(u); return u;
 }
+export function deleteSessionFromMem(mem, sid, idx) {
+  const sessions = [...(mem.subjects[sid] || [])];
+  sessions.splice(idx, 1);
+  const u = { ...mem, subjects: { ...mem.subjects, [sid]: sessions } };
+  saveMemory(u); return u;
+}
 export function clearSubjectMem(mem, sid) {
   const u = { ...mem, subjects: { ...mem.subjects, [sid]: [] } };
   saveMemory(u); return u;

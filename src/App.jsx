@@ -3,10 +3,11 @@ import { Routes, Route } from "react-router-dom";
 import "./global.css";
 
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
-import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, loadMemory, getSessions, clearSubjectMem, clearAllMem } from "./utils/storage.js";
+import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, loadMemory, getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
 import { loadXP, addXP, loadStreaks, recordActivity } from "./utils/xp.js";
 import { loadTopicProgress, loadCustomTopics, saveCustomTopics, loadTeacherNotes, saveTeacherNotes, loadStudentNotes, saveStudentNotes } from "./utils/topics.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
+import { sbDeleteSession } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 
 import { useAuth } from "./hooks/useAuth.js";
@@ -164,6 +165,11 @@ export default function App() {
     }, 300);
   }
 
+  function handleDeleteSession(subjectId, idx, session) {
+    setMemory(prev => deleteSessionFromMem(prev, subjectId, idx));
+    sbDeleteSession(subjectId, session);
+  }
+
   const quickPrompts = getQuickPrompts({ active, examMode, curMats, curMem, voiceMode, convoMode });
 
   // Auth gate: require login when Supabase is configured
@@ -215,7 +221,7 @@ export default function App() {
             </div>
           </div>
 
-          {modal === "settings" && <ModalLayer modal={modal} setModal={setModal} active={null} subject={null} showSum={null} setShowSum={setShowSum} quizSubject={null} setQuizSubject={setQuizSubject} topicsFor={null} setTopicsFor={setTopicsFor} buildQuizFor={null} setBuildQuizFor={setBuildQuizFor} memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile} topicData={topicData} customTopics={customTopics} mats={mats} setMats={setMats} curMats={[]} updateProfile={updateProfile} studyTopic={studyTopic} gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics} teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes} studentNotes={studentNotes} onSaveStudentNotes={handleSaveStudentNotes} onSessionAction={handleSessionAction} clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem} />}
+          {modal === "settings" && <ModalLayer modal={modal} setModal={setModal} active={null} subject={null} showSum={null} setShowSum={setShowSum} quizSubject={null} setQuizSubject={setQuizSubject} topicsFor={null} setTopicsFor={setTopicsFor} buildQuizFor={null} setBuildQuizFor={setBuildQuizFor} memory={memory} setMemory={setMemory} profile={profile} setProfile={setProfile} topicData={topicData} customTopics={customTopics} mats={mats} setMats={setMats} curMats={[]} updateProfile={updateProfile} studyTopic={studyTopic} gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics} teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes} studentNotes={studentNotes} onSaveStudentNotes={handleSaveStudentNotes} onSessionAction={handleSessionAction} onDeleteSession={handleDeleteSession} clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem} />}
           {showLinkChild && <LinkChildModal onClose={() => setShowLinkChild(false)} onLinked={() => {}} />}
 
           <ParentHome
@@ -245,7 +251,7 @@ export default function App() {
         gainXP={gainXP} onQuizComplete={handleQuizComplete} onSaveCustomTopics={handleSaveCustomTopics}
         teacherNotes={teacherNotes} onSaveTeacherNotes={handleSaveTeacherNotes}
         studentNotes={studentNotes} onSaveStudentNotes={handleSaveStudentNotes}
-        onSessionAction={handleSessionAction}
+        onSessionAction={handleSessionAction} onDeleteSession={handleDeleteSession}
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
       />
 

@@ -29,7 +29,7 @@ export function ModalLayer({
   updateProfile, studyTopic, gainXP, onQuizComplete, onSaveCustomTopics,
   teacherNotes, onSaveTeacherNotes,
   studentNotes, onSaveStudentNotes,
-  onSessionAction,
+  onSessionAction, onDeleteSession,
   clearSubjectMem, clearAllMem,
 }) {
   return (
@@ -59,7 +59,7 @@ export function ModalLayer({
       {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
       {modal === "teacherNotes" && active && <TeacherNotes subject={subject} notes={teacherNotes} onSave={onSaveTeacherNotes} onClose={() => setModal(null)} />}
       {modal === "studentNotes" && active && <StudentNotes subject={subject} profile={profile} customTopics={customTopics} notes={studentNotes} onSave={onSaveStudentNotes} onClose={() => setModal(null)} />}
-      {modal === "history" && active && <SessionHistory subject={subject} memory={memory} onAction={(type, data) => { onSessionAction(type, data); setModal(null); }} onClose={() => setModal(null)} />}
+      {modal === "history" && active && <SessionHistory subject={subject} memory={memory} onAction={(type, data) => { onSessionAction(type, data); setModal(null); }} onDelete={onDeleteSession} onClose={() => setModal(null)} />}
     </>
   );
 }
