@@ -14,24 +14,31 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
 
-  // Robust date parser for session dates
+  // Parse session date from "14 March 2026" / "14th March 2026" directly
+  // without new Date() to avoid timezone ambiguity entirely
+  const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
   const parseSessionDate = (dateStr) => {
     if (!dateStr) return "";
-    try {
-      let clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
-      const d = new Date(clean);
-      if (isNaN(d.getTime())) return "";
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}`;
-    } catch { return ""; }
+    const clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
+    const m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (!m) return "";
+    const mo = MONTH_MAP[m[2].toLowerCase()];
+    if (!mo) return "";
+    return `${m[3]}-${mo}-${m[1].padStart(2, "0")}`;
   };
 
-  // Aggregate study time
+  // Build local week/month comparators (independent of UTC-based weekHeatmap)
   const now = new Date();
-  const monthStr = now.toISOString().slice(0, 7);
-  const weekDates = new Set(week.map(w => w.date));
+  const pad2 = n => String(n).padStart(2, "0");
+  const localToday = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const monthStr = localToday.slice(0, 7);
+  const jsDay = now.getDay();
+  const daysSinceMonday = jsDay === 0 ? 6 : jsDay - 1;
+  const localWeekDates = new Set();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday + i);
+    localWeekDates.add(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
+  }
   const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
   const subs = mySubjects(profile);
   let totalMinutes = 0, weekMinutes = 0, monthMinutes = 0;
@@ -40,7 +47,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
       const mins = ses.studyTimeMinutes || 0;
       totalMinutes += mins;
       const isoDate = parseSessionDate(ses.date);
-      if (isoDate && weekDates.has(isoDate)) weekMinutes += mins;
+      if (isoDate && localWeekDates.has(isoDate)) weekMinutes += mins;
       if (isoDate?.startsWith(monthStr)) monthMinutes += mins;
     }
   }
