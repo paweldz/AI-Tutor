@@ -41,6 +41,7 @@ export function useSessionManager({
 
     // Flush pending data to cloud BEFORE signing out
     if (profile) sbSaveSetting("profile", profile);
+    if (memory && Object.keys(memory.subjects || {}).length > 0) sbSaveSetting("memory", memory);
     if (xpData && (xpData.total > 0 || xpData.history?.length > 0)) sbSaveXP(xpData);
     if (streakData?.dates?.length > 0) sbSaveStreaks(streakData);
     if (topicData && Object.keys(topicData).length > 0) sbSaveSetting("topics", topicData);

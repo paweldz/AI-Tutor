@@ -10,12 +10,21 @@ import { sbSaveXP, sbSaveStreaks, sbSaveSetting } from "../utils/cloudSync.js";
  * cloud writes before clearing state (prevents empty-data overwrites).
  */
 export function usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, profile, setStreakData }) {
+  const memoryTimerRef = useRef(null);
   const xpTimerRef = useRef(null);
   const streakTimerRef = useRef(null);
   const topicTimerRef = useRef(null);
   const customTopicsTimerRef = useRef(null);
   const teacherNotesTimerRef = useRef(null);
   const studentNotesTimerRef = useRef(null);
+
+  // Save full memory object to cloud whenever it changes (handles deletes, clears, etc.)
+  useEffect(() => {
+    clearTimeout(memoryTimerRef.current);
+    if (memory && Object.keys(memory.subjects || {}).length > 0) {
+      memoryTimerRef.current = setTimeout(() => sbSaveSetting("memory", memory), 2000);
+    }
+  }, [memory]);
 
   useEffect(() => {
     clearTimeout(xpTimerRef.current);
@@ -61,6 +70,7 @@ export function usePersistence({ memory, xpData, streakData, topicData, customTo
 
   /** Cancel all pending debounced cloud saves (call before switchUser clears state). */
   const cancelPendingSaves = useCallback(() => {
+    clearTimeout(memoryTimerRef.current);
     clearTimeout(xpTimerRef.current);
     clearTimeout(streakTimerRef.current);
     clearTimeout(topicTimerRef.current);
