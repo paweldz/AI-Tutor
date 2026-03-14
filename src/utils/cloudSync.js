@@ -56,13 +56,70 @@ export async function sbLoad() {
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
 }
 
+/** Delete a single session from Supabase by matching subject + sessionId or date+summary */
+export async function sbDeleteSession(subject, session) {
+  if (!supabase) return false;
+  try {
+    const { data } = await supabase.from("tutor_memory")
+      .select("id, summary, session_date")
+      .eq("subject", subject);
+    if (!data?.length) return false;
+
+    // 1. Match by sessionId (most reliable)
+    if (session.sessionId) {
+      for (const row of data) {
+        let parsed; try { parsed = JSON.parse(row.summary); } catch { continue; }
+        if (parsed?.sessionId === session.sessionId) {
+          const { error } = await supabase.from("tutor_memory").delete().eq("id", row.id);
+          if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+          return true;
+        }
+      }
+    }
+
+    // 2. Fallback: match by date + summary text prefix
+    const sessText = (session.rawSummaryText || "").slice(0, 80);
+    const sessDate = session.date || "";
+    for (const row of data) {
+      let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
+      const rowText = (parsed?.rawSummaryText || row.summary || "").slice(0, 80);
+      const rowDate = parsed?.date || row.session_date || "";
+      if (rowDate === sessDate && sessText && rowText === sessText) {
+        const { error } = await supabase.from("tutor_memory").delete().eq("id", row.id);
+        if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+        return true;
+      }
+    }
+
+    // 3. Last resort: match by date alone if only one session on that date
+    if (sessDate) {
+      const sameDateRows = data.filter(row => {
+        let parsed; try { parsed = JSON.parse(row.summary); } catch { parsed = null; }
+        return (parsed?.date || row.session_date || "") === sessDate;
+      });
+      if (sameDateRows.length === 1) {
+        const { error } = await supabase.from("tutor_memory").delete().eq("id", sameDateRows[0].id);
+        if (error) { console.warn("[cloudSync] sbDeleteSession delete failed:", error.message); return false; }
+        return true;
+      }
+    }
+
+    console.warn("[cloudSync] sbDeleteSession: no matching row found");
+    return false;
+  } catch (e) { console.warn("[cloudSync] sbDeleteSession failed:", e); return false; }
+}
+
 export function mergeMemory(local, cloud) {
   if (!cloud) return local;
   const merged = { version: 2, subjects: { ...local.subjects } };
   for (const [sid, sessions] of Object.entries(cloud.subjects || {})) {
     const existing = merged.subjects[sid] || [];
-    const keys = new Set(existing.map(s => s.date + "|" + (s.rawSummaryText || "").slice(0, 80)));
-    merged.subjects[sid] = [...existing, ...sessions.filter(s => !keys.has(s.date + "|" + (s.rawSummaryText || "").slice(0, 80)))];
+    // Use sessionId for dedup when available, fall back to date+text fingerprint
+    const keys = new Set(existing.map(s => s.sessionId || (s.date + "|" + (s.rawSummaryText || "").slice(0, 80))));
+    merged.subjects[sid] = [...existing, ...sessions.filter(s => {
+      const key = s.sessionId || (s.date + "|" + (s.rawSummaryText || "").slice(0, 80));
+      return !keys.has(key);
+    })];
   }
   return merged;
 }

@@ -1,7 +1,6 @@
 import { SUBJECTS, emptyMats } from "../config/subjects.js";
-import { setActiveStudent, saveProfile, loadMemory, getSessions } from "../utils/storage.js";
-import { loadXP, loadStreaks } from "../utils/xp.js";
-import { loadTopicProgress, recordTopicStudy } from "../utils/topics.js";
+import { getSessions } from "../utils/storage.js";
+import { recordTopicStudy } from "../utils/topics.js";
 import { sbSaveSetting, sbSaveXP, sbSaveStreaks } from "../utils/cloudSync.js";
 import { stopSpeaking } from "../utils/speech.js";
 
@@ -11,14 +10,14 @@ import { stopSpeaking } from "../utils/speech.js";
  */
 export function useSessionManager({
   active, sessions, msgs, curMats, profile, memory, autoSumming,
-  xpData, streakData, topicData,
-  setActiveRaw, setSessions, setMats, setExamMode, setProfile, setMemory,
-  setXpData, setStreakData, setTopicData, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
+  xpData, streakData, topicData, customTopics,
+  setActiveRaw, setSessions, setMats, setExamSession, setProfile, setMemory,
+  setXpData, setStreakData, setTopicData, setCustomTopics, setModal, resetSync, cancelPendingSaves, autoSave, sendRef, signOut,
 }) {
   function setActive(newId) {
     if (active && msgs.length >= 6 && !autoSumming) autoSave(active, msgs, curMats);
     setActiveRaw(newId);
-    setExamMode(false);
+    setExamSession(null);
     if (newId && !sessions[newId] && profile) {
       const sub = SUBJECTS[newId];
       const board = profile.examBoards?.[newId];
@@ -28,21 +27,8 @@ export function useSessionManager({
   }
 
   function updateProfile(p) {
-    const nameChanged = p?.name && p.name !== profile?.name;
-    saveProfile(p);
     setProfile(p);
     if (p?.name) {
-      setActiveStudent(p.name);
-      // Only reload from localStorage when the student name actually changed
-      // (e.g. switching users in settings). When coming from Setup after a
-      // cloud restore, the React state already has the correct data — reloading
-      // from localStorage would overwrite it with empty values.
-      if (nameChanged) {
-        setMemory(loadMemory());
-        setXpData(loadXP());
-        setStreakData(loadStreaks());
-        setTopicData(loadTopicProgress());
-      }
       sbSaveSetting("profile", p);
     }
     setModal(null);
@@ -53,31 +39,27 @@ export function useSessionManager({
     if (active && msgs.length >= 6) autoSave(active, msgs, curMats);
     stopSpeaking();
 
-    // ── Flush pending data to cloud BEFORE signing out ──
-    // Debounced saves (2s delay) may not have fired yet — force them now
-    // so no recent changes are lost when the auth session is destroyed.
+    // Flush pending data to cloud BEFORE signing out
     if (profile) sbSaveSetting("profile", profile);
     if (xpData && (xpData.total > 0 || xpData.history?.length > 0)) sbSaveXP(xpData);
     if (streakData?.dates?.length > 0) sbSaveStreaks(streakData);
     if (topicData && Object.keys(topicData).length > 0) sbSaveSetting("topics", topicData);
+    if (customTopics && Object.keys(customTopics).length > 0) sbSaveSetting("customTopics", customTopics);
 
     // Cancel debounced cloud saves so the state-clearing below doesn't
     // schedule empty-data overwrites via usePersistence effects.
     if (cancelPendingSaves) cancelPendingSaves();
 
-    // Clear UI state
+    // Clear all state
     setActiveRaw(null);
     setSessions({});
     setMats(emptyMats());
-
-    // Clear local profile state (but keep localStorage data keyed by student)
-    setActiveStudent("");
     setProfile(null);
-    saveProfile(null);
     setMemory({ version: 2, subjects: {} });
     setXpData({ total: 0, history: [] });
     setStreakData({ dates: [] });
     setTopicData({});
+    setCustomTopics({});
 
     // Reset cloud sync so it re-triggers on next login
     resetSync();

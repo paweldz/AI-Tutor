@@ -1,15 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════
-   STREAKS & XP — gamification layer
+   STREAKS & XP — gamification layer (pure functions, no localStorage)
    ═══════════════════════════════════════════════════════════════════ */
-
-import { readJSON, writeJSON, studentKey } from "./storage.js";
-
-export const XP_KEYS = { xp: "gcse_xp_v1", streaks: "gcse_streaks_v1" };
 
 export function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-export function loadXP() { return readJSON(studentKey(XP_KEYS.xp), { total: 0, history: [] }); }
-export function saveXP(data) { writeJSON(studentKey(XP_KEYS.xp), data); }
 export function addXP(prev, amount, reason) {
   const entry = { amount, reason, date: todayStr(), ts: Date.now() };
   return { total: prev.total + amount, history: [...prev.history.slice(-200), entry] };
@@ -30,8 +24,6 @@ export function xpLevel(total) {
 
 export const LEVEL_EMOJIS = ["", "\ud83c\udf31", "\ud83c\udf3f", "\ud83c\udf3b", "\u2b50", "\ud83c\udf1f", "\ud83d\udd25", "\ud83d\udc8e", "\ud83d\udc51", "\ud83c\udf1f", "\ud83c\udfc6"];
 
-export function loadStreaks() { return readJSON(studentKey(XP_KEYS.streaks), { dates: [] }); }
-export function saveStreaks(data) { writeJSON(studentKey(XP_KEYS.streaks), data); }
 export function recordActivity(streaks) {
   const today = todayStr();
   if (streaks.dates.includes(today)) return streaks;

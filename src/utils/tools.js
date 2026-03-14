@@ -7,6 +7,21 @@ import { getSessions } from "./storage.js";
 /** Tool schemas sent to the Claude API */
 export const TUTOR_TOOLS = [
   {
+    name: "log_assessment",
+    description: "REQUIRED: Call this EVERY TIME after a student answers a question or attempts a problem. Log the result immediately — do not batch or skip. This tracks accuracy, hints given, and topic depth for honest progress reporting.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Specific sub-topic tested (e.g. 'factorising quadratics', not just 'algebra')" },
+        result: { type: "string", enum: ["correct", "partial", "wrong", "skipped"], description: "How the student did: correct=fully right, partial=partly right or right with hints, wrong=incorrect, skipped=gave up or changed subject" },
+        hintsGiven: { type: "integer", description: "Number of hints or nudges given before the student's final answer (0 if none)" },
+        studentExplainedReasoning: { type: "boolean", description: "Did the student explain their thinking, or just give a bare answer?" },
+        questionType: { type: "string", enum: ["recall", "apply", "analyse", "exam"], description: "Bloom's level: recall=definitions/facts, apply=use a method, analyse=multi-step/explain why, exam=exam-style question" },
+      },
+      required: ["topic", "result", "hintsGiven", "studentExplainedReasoning", "questionType"],
+    },
+  },
+  {
     name: "save_progress",
     description: "Save the student's current session progress including topics studied and confidence levels. Use this after a meaningful learning exchange or when the student asks to save their progress.",
     input_schema: {
@@ -55,6 +70,13 @@ export const TUTOR_TOOLS = [
  */
 export function executeTool(toolName, toolInput, ctx) {
   const { memory, profile } = ctx;
+
+  if (toolName === "log_assessment") {
+    const { topic, result, hintsGiven, studentExplainedReasoning, questionType } = toolInput;
+    const entry = { topic, result, hintsGiven: hintsGiven || 0, studentExplainedReasoning: !!studentExplainedReasoning, questionType: questionType || "apply", ts: Date.now() };
+    if (ctx.onAssessment) ctx.onAssessment(entry);
+    return JSON.stringify({ logged: true, ...entry });
+  }
 
   if (toolName === "save_progress") {
     const { subject, topics, confidenceScores, summary } = toolInput;

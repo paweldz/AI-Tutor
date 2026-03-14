@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════
-   TOPIC & CONFIDENCE TRACKING
+   TOPIC & CONFIDENCE TRACKING (pure functions, no localStorage)
    ═══════════════════════════════════════════════════════════════════ */
 
-import { readJSON, writeJSON, studentKey, getSessions } from "./storage.js";
+import { getSessions } from "./storage.js";
 import { todayStr } from "./xp.js";
-import { SUBJECT_TOPICS } from "../config/subjects.js";
+import { SUBJECT_TOPICS, getDefaultTopics } from "../config/subjects.js";
 
 /* Extract latest confidence scores across all subjects from memory */
 export function getConfidence(memory, sid) {
@@ -22,18 +22,26 @@ export function avgConfidence(scores) {
 }
 
 /* Topic progress tracking — { subjectId: { topicName: { studied, lastDate, confidence } } } */
-export const TOPIC_KEY = "gcse_topics_v1";
-export function loadTopicProgress() { return readJSON(studentKey(TOPIC_KEY), {}); }
-export function saveTopicProgress(data) { writeJSON(studentKey(TOPIC_KEY), data); }
 export function recordTopicStudy(prev, sid, topic, confidence) {
   const old = prev[sid]?.[topic] || { studied: 0, confidence: 0 };
   return { ...prev, [sid]: { ...prev[sid], [topic]: { studied: old.studied + 1, lastDate: todayStr(), confidence: typeof confidence === "number" ? confidence : old.confidence } } };
 }
 export function getTopicProgress(data, sid) { return data[sid] || {}; }
-export function topicPct(data, sid) {
-  const topics = SUBJECT_TOPICS[sid] || [];
+export function topicPct(data, sid, profile, customTopics) {
+  const topics = getTopicsForSubject(sid, profile, customTopics);
   if (!topics.length) return 0;
   const prog = data[sid] || {};
   const studied = topics.filter(t => prog[t]?.studied > 0).length;
   return Math.round(studied / topics.length * 100);
+}
+
+/**
+ * Resolve the topic list for a subject.
+ * Priority: customTopics > board/tier defaults > generic SUBJECT_TOPICS
+ */
+export function getTopicsForSubject(sid, profile, customTopics) {
+  if (customTopics?.[sid]?.length) return customTopics[sid];
+  const board = profile?.examBoards?.[sid];
+  const tier = profile?.tier;
+  return getDefaultTopics(sid, board, tier);
 }

@@ -6,24 +6,19 @@ import { SettingsModal } from "./SettingsModal.jsx";
 import { TopicsPanel } from "./TopicsPanel.jsx";
 import { QuickQuiz } from "./QuickQuiz.jsx";
 import { QuizBuilder } from "./QuizBuilder.jsx";
-import { saveProfile } from "../utils/storage.js";
-
-export function StorageFullBanner({ onDismiss }) {
-  return (
-    <div style={{ background: "#d32f2f", color: "#fff", padding: "8px 16px", textAlign: "center", fontSize: 13, fontWeight: 600 }}>
-      Your device storage is full — progress may not be saved. Try clearing old sessions in Memory Manager.{" "}
-      <button onClick={onDismiss} style={{ background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 4, marginLeft: 8, cursor: "pointer", fontSize: 12, padding: "2px 8px" }}>Dismiss</button>
-    </div>
-  );
-}
-
+import { TeacherNotes } from "./TeacherNotes.jsx";
+import { SessionHistory } from "./SessionHistory.jsx";
+import { StudentNotes } from "./StudentNotes.jsx";
 export function ModalLayer({
   modal, setModal, active, subject, showSum, setShowSum,
   quizSubject, setQuizSubject, topicsFor, setTopicsFor,
   buildQuizFor, setBuildQuizFor,
-  memory, setMemory, profile, setProfile, topicData,
+  memory, setMemory, profile, setProfile, topicData, customTopics,
   mats, setMats, curMats,
-  updateProfile, studyTopic, gainXP, onQuizComplete,
+  updateProfile, studyTopic, gainXP, onQuizComplete, onSaveCustomTopics,
+  teacherNotes, onSaveTeacherNotes,
+  studentNotes, onSaveStudentNotes,
+  onSessionAction, onDeleteSession,
   clearSubjectMem, clearAllMem,
 }) {
   return (
@@ -42,15 +37,18 @@ export function ModalLayer({
           onClearSubject={sid => setMemory(prev => clearSubjectMem(prev, sid))}
           onClearAll={() => setMemory(clearAllMem())}
           onClose={() => setModal(null)}
-          onImport={(p, m) => { saveProfile(p); setProfile(p); setMemory(m); setModal(null); }}
+          onImport={(p, m) => { setProfile(p); setMemory(m); setModal(null); }}
         />
       )}
       {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
       {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} />}
       {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
       {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
-      {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} />}
+      {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} customTopics={customTopics} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} onSaveCustomTopics={onSaveCustomTopics} />}
       {buildQuizFor && <QuizBuilder subject={buildQuizFor} profile={profile} onClose={() => setBuildQuizFor(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
+      {modal === "teacherNotes" && active && <TeacherNotes subject={subject} notes={teacherNotes} onSave={onSaveTeacherNotes} onClose={() => setModal(null)} />}
+      {modal === "studentNotes" && active && <StudentNotes subject={subject} profile={profile} customTopics={customTopics} notes={studentNotes} onSave={onSaveStudentNotes} onClose={() => setModal(null)} />}
+      {modal === "history" && active && <SessionHistory subject={subject} memory={memory} onAction={(type, data) => { onSessionAction(type, data); setModal(null); }} onDelete={onDeleteSession} onClose={() => setModal(null)} />}
     </>
   );
 }
