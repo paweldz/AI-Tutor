@@ -5,15 +5,15 @@ import { getConfidence, avgConfidence, getTopicProgress, topicPct, getTopicsForS
 import { confidenceColor } from "../styles/tokens.js";
 import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent }) {
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 22px" }}>
-      {/* Streak & XP Bar */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+      {/* Streak & XP Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         {/* a. Streaks */}
         <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -32,102 +32,78 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           <div style={{ height: 6, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#f0c040,#f59e0b)", width: Math.min(100, lv.current / lv.next * 100) + "%", transition: "width .5s" }} /></div>
           <div style={{ fontSize: 9, color: "#bbb", marginTop: 3 }}>{lv.current}/{lv.next} XP to Level {lv.level + 1}</div>
         </div>
-        {/* c. Time Spent Stats */}
-        {(() => {
-          const activeDays = streakData.dates?.length || 0;
-          const totalSessions = totalMem;
-          const thisWeekDays = week.filter(d => d.active).length;
-          const xpThisWeek = (xpData.history || []).filter(h => week.some(w => w.date === h.date)).reduce((a, h) => a + h.amount, 0);
-          return (
-            <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 22 }}>{"\u23f1\ufe0f"}</span>
-                <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>Activity stats</div></div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div style={{ flex: 1, textAlign: "center", background: "#f0fdf4", borderRadius: 8, padding: "6px 4px" }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{thisWeekDays}</div>
-                  <div style={{ fontSize: 8, color: "#999" }}>this week</div>
-                </div>
-                <div style={{ flex: 1, textAlign: "center", background: "#fefce8", borderRadius: 8, padding: "6px 4px" }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{activeDays}</div>
-                  <div style={{ fontSize: 8, color: "#999" }}>total days</div>
-                </div>
-                <div style={{ flex: 1, textAlign: "center", background: "#eff6ff", borderRadius: 8, padding: "6px 4px" }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{totalSessions}</div>
-                  <div style={{ fontSize: 8, color: "#999" }}>sessions</div>
-                </div>
-              </div>
-              {xpThisWeek > 0 && <div style={{ fontSize: 9, color: "#999", marginTop: 6 }}>{"\u26a1"} {xpThisWeek} XP earned this week</div>}
-            </div>
-          );
-        })()}
-        {/* d. Upcoming Events */}
-        {(() => {
-          const upcoming = getUpcoming(events || []);
-          const next = upcoming[0];
-          const nextDays = next ? daysUntil(next.date) : -1;
-          return (
-            <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 22 }}>{"\ud83d\udcc5"}</span>
-                <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Events</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{upcoming.length} upcoming</div></div>
-              </div>
-              {next ? (
-                <>
-                  <div style={{ background: nextDays <= 1 ? "#fef2f2" : "#f0f9ff", borderRadius: 10, padding: "8px 10px", marginBottom: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: nextDays <= 1 ? "#ef4444" : "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {eventTypeInfo(next.type).emoji} {next.title}
-                    </div>
-                    <div style={{ fontSize: 10, color: "#999" }}>
-                      {SUBJECTS[next.subjectId]?.emoji} {formatEventDate(next.date)}
-                    </div>
-                  </div>
-                  {upcoming.length > 1 && <div style={{ fontSize: 9, color: "#bbb" }}>+{upcoming.length - 1} more event{upcoming.length > 2 ? "s" : ""}</div>}
-                </>
-              ) : (
-                <div style={{ fontSize: 11, color: "#bbb", textAlign: "center", padding: 8 }}>No upcoming events</div>
-              )}
-            </div>
-          );
-        })()}
       </div>
 
-      <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
-      <p style={{ color: "#999", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
-
-      {/* Upcoming Events */}
+      {/* c. Study Time — full width */}
       {(() => {
-        const upcoming = getUpcoming(events || []);
-        if (!upcoming.length) return null;
+        const activeDays = streakData.dates?.length || 0;
+        const allSessions = totalMem;
+        const thisWeekDays = week.filter(d => d.active).length;
+        const history = xpData.history || [];
+        const now = new Date();
+        const monthStr = now.toISOString().slice(0, 7); // "YYYY-MM"
+        const xpThisWeek = history.filter(h => week.some(w => w.date === h.date)).reduce((a, h) => a + h.amount, 0);
+        const xpThisMonth = history.filter(h => h.date?.startsWith(monthStr)).reduce((a, h) => a + h.amount, 0);
+        // Estimate study time: ~1 min per 5 XP (messages=5xp, summaries=25xp, correct=20xp)
+        const minutesThisWeek = Math.round(xpThisWeek / 5);
+        const minutesThisMonth = Math.round(xpThisMonth / 5);
+        const minutesTotal = Math.round(xpData.total / 5);
+        const fmtTime = (m) => m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
+        // Per-subject session counts this month
+        const subs = mySubjects(profile);
+        const subjectMonthly = subs.map(s => {
+          const sessions = getSessions(memory, s.id);
+          const monthSessions = sessions.filter(ses => {
+            const d = ses.date; // "14 March 2026" format
+            try { const pd = new Date(d); return pd.toISOString().slice(0, 7) === monthStr; } catch { return false; }
+          });
+          return { id: s.id, label: s.label, emoji: s.emoji, color: s.color, count: monthSessions.length };
+        }).filter(s => s.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
+
         return (
-          <div style={{ background: "#fff", borderRadius: 16, padding: "14px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udcc5"} Upcoming Events</div>
-            {upcoming.slice(0, 5).map(ev => {
-              const sub = SUBJECTS[ev.subjectId];
-              const ti = eventTypeInfo(ev.type);
-              const days = daysUntil(ev.date);
-              const urgent = days <= 1;
-              return (
-                <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f5f5f5" }}>
-                  <span style={{ fontSize: 18 }}>{ti.emoji}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
-                    <div style={{ fontSize: 11, color: "#999" }}>
-                      {sub?.emoji} {sub?.label}
-                      {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 2).join(", ") : ""}
+          <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>{"\u23f1\ufe0f"}</span>
+              <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{allSessions} sessions across {activeDays} active days</div></div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1, textAlign: "center", background: "#f0fdf4", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesThisWeek)}</div>
+                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this week</div>
+                <div style={{ fontSize: 8, color: "#bbb" }}>{thisWeekDays} day{thisWeekDays !== 1 ? "s" : ""} active</div>
+              </div>
+              <div style={{ flex: 1, textAlign: "center", background: "#fefce8", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesThisMonth)}</div>
+                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>this month</div>
+                <div style={{ fontSize: 8, color: "#bbb" }}>{xpThisMonth} XP</div>
+              </div>
+              <div style={{ flex: 1, textAlign: "center", background: "#eff6ff", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1a2e" }}>{fmtTime(minutesTotal)}</div>
+                <div style={{ fontSize: 9, color: "#999", fontWeight: 600 }}>all time</div>
+                <div style={{ fontSize: 8, color: "#bbb" }}>{xpData.total} XP</div>
+              </div>
+            </div>
+            {subjectMonthly.length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>This month by subject</div>
+                {subjectMonthly.map(s => (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14 }}>{s.emoji}</span>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a2e", width: 80 }}>{s.label}</div>
+                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#eee" }}>
+                      <div style={{ height: "100%", borderRadius: 3, background: s.color, width: Math.min(100, (s.count / Math.max(...subjectMonthly.map(x => x.count))) * 100) + "%", transition: "width .5s" }} />
                     </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#666", width: 50, textAlign: "right" }}>{s.count} sess.</div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
-                    {days > 1 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} days</div>}
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
         );
       })()}
+
+      <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>
+      <p style={{ color: "#999", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>{totalMem > 0 ? "\ud83e\udde0 " + totalMem + " session" + (totalMem > 1 ? "s" : "") + " in memory." : "Your tutors adapt and remember your progress."}</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
         {mySubjects(profile).map((t, i) => {
@@ -163,6 +139,42 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           );
         })}
       </div>
+
+      {/* Upcoming Events — below tutor cards */}
+      {(() => {
+        const upcoming = getUpcoming(events || []);
+        if (!upcoming.length) return null;
+        return (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "14px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase" }}>{"\ud83d\udcc5"} Upcoming Events</div>
+            </div>
+            {upcoming.slice(0, 5).map(ev => {
+              const sub = SUBJECTS[ev.subjectId];
+              const ti = eventTypeInfo(ev.type);
+              const days = daysUntil(ev.date);
+              const urgent = days <= 1;
+              return (
+                <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f5f5f5" }}>
+                  <span style={{ fontSize: 18 }}>{ti.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                    <div style={{ fontSize: 11, color: "#999" }}>
+                      {sub?.emoji} {sub?.label}
+                      {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 2).join(", ") : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", marginRight: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                    {days > 1 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} days</div>}
+                  </div>
+                  {onEditEvent && <button onClick={() => onEditEvent(ev)} style={{ background: "#eee", border: "none", borderRadius: 6, width: 26, height: 26, color: "#666", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Edit">{"\u270e"}</button>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #eee" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#bbb", textTransform: "uppercase", marginBottom: 10 }}>{"\ud83d\udca1"} Tips</div>

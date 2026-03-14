@@ -301,9 +301,9 @@ export default function App() {
 
       {showExamSetup && subject && <ExamSetup subject={subject} onStart={handleStartExam} onClose={() => setShowExamSetup(false)} />}
 
-      {editingEvent && active && (
+      {editingEvent && (
         <EventModal
-          subjectId={active}
+          subjectId={editingEvent !== "new" ? editingEvent.subjectId : active}
           profile={profile}
           customTopics={customTopics}
           event={editingEvent !== "new" ? editingEvent : null}
@@ -346,6 +346,7 @@ export default function App() {
             events={events}
             onSelectSubject={id => setActive(id)} onQuickQuiz={setQuizSubject}
             onTopics={setTopicsFor} onBuildQuiz={setBuildQuizFor}
+            onEditEvent={ev => setEditingEvent(ev)}
           />
         </>
       ) : (
