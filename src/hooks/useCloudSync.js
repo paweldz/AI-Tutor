@@ -94,12 +94,6 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
               }
             }
           }
-          // Debug: log sessions missing isoDate after backfill
-          for (const [sid, sessions] of Object.entries(mem.subjects)) {
-            for (const ses of sessions) {
-              if (!ses.isoDate && ses.studyTimeMinutes) console.warn("[cloudSync] session missing isoDate after backfill:", sid, "date:", ses.date, "mins:", ses.studyTimeMinutes);
-            }
-          }
           setMemory(mem);
           setDbConnected(true);
         } else if (cloud) {
