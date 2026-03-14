@@ -1,7 +1,6 @@
 import { SUBJECTS, emptyMats } from "../config/subjects.js";
-import { setActiveStudent, saveProfile, loadMemory, getSessions } from "../utils/storage.js";
-import { loadXP, loadStreaks } from "../utils/xp.js";
-import { loadTopicProgress, loadCustomTopics, recordTopicStudy } from "../utils/topics.js";
+import { getSessions } from "../utils/storage.js";
+import { recordTopicStudy } from "../utils/topics.js";
 import { sbSaveSetting, sbSaveXP, sbSaveStreaks } from "../utils/cloudSync.js";
 import { stopSpeaking } from "../utils/speech.js";
 
@@ -28,22 +27,8 @@ export function useSessionManager({
   }
 
   function updateProfile(p) {
-    const nameChanged = p?.name && p.name !== profile?.name;
-    saveProfile(p);
     setProfile(p);
     if (p?.name) {
-      setActiveStudent(p.name);
-      // Only reload from localStorage when the student name actually changed
-      // (e.g. switching users in settings). When coming from Setup after a
-      // cloud restore, the React state already has the correct data — reloading
-      // from localStorage would overwrite it with empty values.
-      if (nameChanged) {
-        setMemory(loadMemory());
-        setXpData(loadXP());
-        setStreakData(loadStreaks());
-        setTopicData(loadTopicProgress());
-        setCustomTopics(loadCustomTopics());
-      }
       sbSaveSetting("profile", p);
     }
     setModal(null);
@@ -54,9 +39,7 @@ export function useSessionManager({
     if (active && msgs.length >= 6) autoSave(active, msgs, curMats);
     stopSpeaking();
 
-    // ── Flush pending data to cloud BEFORE signing out ──
-    // Debounced saves (2s delay) may not have fired yet — force them now
-    // so no recent changes are lost when the auth session is destroyed.
+    // Flush pending data to cloud BEFORE signing out
     if (profile) sbSaveSetting("profile", profile);
     if (xpData && (xpData.total > 0 || xpData.history?.length > 0)) sbSaveXP(xpData);
     if (streakData?.dates?.length > 0) sbSaveStreaks(streakData);
@@ -67,15 +50,11 @@ export function useSessionManager({
     // schedule empty-data overwrites via usePersistence effects.
     if (cancelPendingSaves) cancelPendingSaves();
 
-    // Clear UI state
+    // Clear all state
     setActiveRaw(null);
     setSessions({});
     setMats(emptyMats());
-
-    // Clear local profile state (but keep localStorage data keyed by student)
-    setActiveStudent("");
     setProfile(null);
-    saveProfile(null);
     setMemory({ version: 2, subjects: {} });
     setXpData({ total: 0, history: [] });
     setStreakData({ dates: [] });

@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════
-   TOPIC & CONFIDENCE TRACKING
+   TOPIC & CONFIDENCE TRACKING (pure functions, no localStorage)
    ═══════════════════════════════════════════════════════════════════ */
 
-import { readJSON, writeJSON, studentKey, getSessions } from "./storage.js";
+import { getSessions } from "./storage.js";
 import { todayStr } from "./xp.js";
 import { SUBJECT_TOPICS, getDefaultTopics } from "../config/subjects.js";
 
@@ -22,9 +22,6 @@ export function avgConfidence(scores) {
 }
 
 /* Topic progress tracking — { subjectId: { topicName: { studied, lastDate, confidence } } } */
-export const TOPIC_KEY = "gcse_topics_v1";
-export function loadTopicProgress() { return readJSON(studentKey(TOPIC_KEY), {}); }
-export function saveTopicProgress(data) { writeJSON(studentKey(TOPIC_KEY), data); }
 export function recordTopicStudy(prev, sid, topic, confidence) {
   const old = prev[sid]?.[topic] || { studied: 0, confidence: 0 };
   return { ...prev, [sid]: { ...prev[sid], [topic]: { studied: old.studied + 1, lastDate: todayStr(), confidence: typeof confidence === "number" ? confidence : old.confidence } } };
@@ -37,34 +34,6 @@ export function topicPct(data, sid, profile, customTopics) {
   const studied = topics.filter(t => prog[t]?.studied > 0).length;
   return Math.round(studied / topics.length * 100);
 }
-
-/* ═══════════════════════════════════════════════════════════════════
-   CUSTOM TOPICS — student-editable topic lists per subject
-   Shape: { [subjectId]: string[] }
-   When null/empty for a subject, falls back to board/tier defaults.
-   ═══════════════════════════════════════════════════════════════════ */
-
-export const CUSTOM_TOPICS_KEY = "gcse_custom_topics_v1";
-export function loadCustomTopics() { return readJSON(studentKey(CUSTOM_TOPICS_KEY), {}); }
-export function saveCustomTopics(data) { writeJSON(studentKey(CUSTOM_TOPICS_KEY), data); }
-
-/* ═══════════════════════════════════════════════════════════════════
-   TEACHER NOTES — dated feedback from real teachers per subject
-   Shape: { [subjectId]: Array<{ id, source, date, expires?, focus?, strengths?, weaknesses?, approach? }> }
-   ═══════════════════════════════════════════════════════════════════ */
-
-export const TEACHER_NOTES_KEY = "gcse_teacher_notes_v1";
-export function loadTeacherNotes() { return readJSON(studentKey(TEACHER_NOTES_KEY), {}); }
-export function saveTeacherNotes(data) { writeJSON(studentKey(TEACHER_NOTES_KEY), data); }
-
-/* ═══════════════════════════════════════════════════════════════════
-   STUDENT NOTES — quick post-it style notes per subject
-   Shape: { [subjectId]: Array<{ id, topic, text, tags, date }> }
-   ═══════════════════════════════════════════════════════════════════ */
-
-export const STUDENT_NOTES_KEY = "gcse_student_notes_v1";
-export function loadStudentNotes() { return readJSON(studentKey(STUDENT_NOTES_KEY), {}); }
-export function saveStudentNotes(data) { writeJSON(studentKey(STUDENT_NOTES_KEY), data); }
 
 /**
  * Resolve the topic list for a subject.

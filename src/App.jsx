@@ -3,9 +3,8 @@ import { Routes, Route } from "react-router-dom";
 import "./global.css";
 
 import { SUBJECTS, emptyMats } from "./config/subjects.js";
-import { readJSON, setActiveStudent, migrateIfNeeded, loadProfile, loadMemory, getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
-import { loadXP, addXP, loadStreaks, recordActivity } from "./utils/xp.js";
-import { loadTopicProgress, loadCustomTopics, saveCustomTopics, loadTeacherNotes, saveTeacherNotes, loadStudentNotes, saveStudentNotes } from "./utils/topics.js";
+import { getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
+import { addXP, recordActivity } from "./utils/xp.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { sbDeleteSession } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
@@ -23,20 +22,17 @@ import { Setup } from "./components/Setup.jsx";
 import { HomeScreen } from "./components/HomeScreen.jsx";
 import { ChatView } from "./components/ChatView.jsx";
 import { Header } from "./components/Header.jsx";
-import { StorageFullBanner, ModalLayer } from "./components/ModalLayer.jsx";
+import { ModalLayer } from "./components/ModalLayer.jsx";
 import { DashboardPage } from "./components/DashboardPage.jsx";
 import { ParentHome } from "./components/ParentHome.jsx";
 import { ParentChildView } from "./components/ParentChildView.jsx";
 import { LinkChildModal } from "./components/LinkChildModal.jsx";
 import { ChildLinkBanner } from "./components/ChildLinkBanner.jsx";
 
-migrateIfNeeded();
-{ const p = readJSON("gcse_profile_v2"); if (p?.name) setActiveStudent(p.name); }
-
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut, resetPassword, authEnabled } = useAuth();
-  const [profile, setProfile] = useState(loadProfile);
-  const [memory, setMemory] = useState(loadMemory);
+  const [profile, setProfile] = useState(null);
+  const [memory, setMemory] = useState({ version: 2, subjects: {} });
   const [sessions, setSessions] = useState({});
   const [mats, setMats] = useState(emptyMats);
   const [active, setActiveRaw] = useState(null);
@@ -44,16 +40,15 @@ export default function App() {
   const [showSum, setShowSum] = useState(null);
   const [examMode, setExamMode] = useState(false);
   const [input, setInput] = useState("");
-  const [xpData, setXpData] = useState(loadXP);
-  const [streakData, setStreakData] = useState(loadStreaks);
-  const [topicData, setTopicData] = useState(loadTopicProgress);
-  const [customTopics, setCustomTopics] = useState(loadCustomTopics);
-  const [teacherNotes, setTeacherNotes] = useState(loadTeacherNotes);
-  const [studentNotes, setStudentNotes] = useState(loadStudentNotes);
+  const [xpData, setXpData] = useState({ total: 0, history: [] });
+  const [streakData, setStreakData] = useState({ dates: [] });
+  const [topicData, setTopicData] = useState({});
+  const [customTopics, setCustomTopics] = useState({});
+  const [teacherNotes, setTeacherNotes] = useState({});
+  const [studentNotes, setStudentNotes] = useState({});
   const [quizSubject, setQuizSubject] = useState(null);
   const [topicsFor, setTopicsFor] = useState(null);
   const [buildQuizFor, setBuildQuizFor] = useState(null);
-  const [storageFull, setStorageFull] = useState(false);
   const [viewingChild, setViewingChild] = useState(null);
   const [showLinkChild, setShowLinkChild] = useState(false);
   const bottomRef = useRef(null);
@@ -80,25 +75,16 @@ export default function App() {
       } else {
         delete updated[subjectId];
       }
-      saveCustomTopics(updated);
       return updated;
     });
   }
 
   function handleSaveTeacherNotes(subjectId, notes) {
-    setTeacherNotes(prev => {
-      const updated = { ...prev, [subjectId]: notes };
-      saveTeacherNotes(updated);
-      return updated;
-    });
+    setTeacherNotes(prev => ({ ...prev, [subjectId]: notes }));
   }
 
   function handleSaveStudentNotes(subjectId, notes) {
-    setStudentNotes(prev => {
-      const updated = { ...prev, [subjectId]: notes };
-      saveStudentNotes(updated);
-      return updated;
-    });
+    setStudentNotes(prev => ({ ...prev, [subjectId]: notes }));
   }
 
   const { dbConnected, syncing, resetSync } = useCloudSync({ user, profile, setProfile, setMemory, setTopicData, setCustomTopics, setXpData, setStreakData, setTeacherNotes, setStudentNotes });
@@ -109,7 +95,7 @@ export default function App() {
     startMic, stopMic, micSupported, startMicRef,
   } = useVoice({ voiceCfg, msgs, active, sendRef, setInput });
 
-  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, profile, setStreakData, setStorageFull });
+  const { cancelPendingSaves } = usePersistence({ memory, xpData, streakData, topicData, customTopics, teacherNotes, studentNotes, profile, setStreakData });
 
   const { send, genSummary, autoSave, loading, sumLoading, autoSumming, sessionsRef, resetMetrics, getSessionMetrics } = useChat({
     active, profile, memory, sessions, setSessions, mats,
@@ -237,8 +223,6 @@ export default function App() {
 
   const mainView = (
     <div style={{ minHeight: "100vh", background: active && subject ? subject.bg : "#f5f4f0", fontFamily: "'Source Sans 3',sans-serif", transition: "background .4s" }}>
-      {storageFull && <StorageFullBanner onDismiss={() => setStorageFull(false)} />}
-
       <ModalLayer
         modal={modal} setModal={setModal} active={active} subject={subject}
         showSum={showSum} setShowSum={setShowSum}

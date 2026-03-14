@@ -9,17 +9,6 @@ import { QuizBuilder } from "./QuizBuilder.jsx";
 import { TeacherNotes } from "./TeacherNotes.jsx";
 import { SessionHistory } from "./SessionHistory.jsx";
 import { StudentNotes } from "./StudentNotes.jsx";
-import { saveProfile } from "../utils/storage.js";
-
-export function StorageFullBanner({ onDismiss }) {
-  return (
-    <div style={{ background: "#d32f2f", color: "#fff", padding: "8px 16px", textAlign: "center", fontSize: 13, fontWeight: 600 }}>
-      Your device storage is full — progress may not be saved. Try clearing old sessions in Memory Manager.{" "}
-      <button onClick={onDismiss} style={{ background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 4, marginLeft: 8, cursor: "pointer", fontSize: 12, padding: "2px 8px" }}>Dismiss</button>
-    </div>
-  );
-}
-
 export function ModalLayer({
   modal, setModal, active, subject, showSum, setShowSum,
   quizSubject, setQuizSubject, topicsFor, setTopicsFor,
@@ -48,7 +37,7 @@ export function ModalLayer({
           onClearSubject={sid => setMemory(prev => clearSubjectMem(prev, sid))}
           onClearAll={() => setMemory(clearAllMem())}
           onClose={() => setModal(null)}
-          onImport={(p, m) => { saveProfile(p); setProfile(p); setMemory(m); setModal(null); }}
+          onImport={(p, m) => { setProfile(p); setMemory(m); setModal(null); }}
         />
       )}
       {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
