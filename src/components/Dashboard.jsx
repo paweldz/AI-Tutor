@@ -13,7 +13,7 @@ export function Dashboard({ memory, mats, profile, onClose }) {
       <div className={s.panel}>
         <div className={s.header}>
           <div>
-            <div className={s.headerTag}>PARENT DASHBOARD</div>
+            <div className={s.headerTag}>STATS</div>
             <div className={s.headerTitle}>{profile.name}'s Progress</div>
             <div className={s.headerMeta}>{profile.year} {"\u00b7"} {profile.tier} {"\u00b7"} {allSums.length} sessions</div>
           </div>
