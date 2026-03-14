@@ -26,6 +26,7 @@ import { Header } from "./components/Header.jsx";
 import { ModalLayer } from "./components/ModalLayer.jsx";
 import { Calculator } from "./components/Calculator.jsx";
 import { ExamSetup } from "./components/ExamSetup.jsx";
+import { MarkPaperSetup } from "./components/MarkPaperSetup.jsx";
 import { EventModal } from "./components/EventModal.jsx";
 import { EventComplete } from "./components/EventComplete.jsx";
 import { DashboardPage } from "./components/DashboardPage.jsx";
@@ -61,6 +62,7 @@ export default function App() {
   const [viewingChild, setViewingChild] = useState(null);
   const [showLinkChild, setShowLinkChild] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
+  const [showMarkPaper, setShowMarkPaper] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sendRef = useRef(null);
@@ -191,6 +193,30 @@ export default function App() {
     setExamSession(null);
   }
 
+  function handleStartMarkPaper(session) {
+    setShowMarkPaper(false);
+    // Inject uploaded files as subject materials so the API can see them
+    const allFiles = [...session.paperMats, ...session.schemeMats];
+    if (allFiles.length && active) {
+      setMats(prev => ({ ...prev, [active]: [...(prev[active] || []), ...allFiles] }));
+    }
+    // Build the opening message
+    const desc = session.description ? ` (${session.description})` : "";
+    const paperNames = session.paperMats.map(m => m.name).join(", ");
+    const hasScheme = session.schemeMats.length > 0;
+    const schemeNames = session.schemeMats.map(m => m.name).join(", ");
+    let msg = `I've uploaded my completed test${desc}: ${paperNames}. Please mark my answers carefully.`;
+    if (hasScheme) {
+      msg += ` I've also uploaded the official mark scheme: ${schemeNames}. Use it to mark accurately against the real criteria.`;
+    } else {
+      msg += " I don't have the mark scheme, so please use your knowledge of GCSE marking standards.";
+    }
+    msg += " Go through each question, tell me what marks I'd get and why, then give me a total score and overall feedback at the end.";
+    setTimeout(() => {
+      if (sendRef.current) sendRef.current(msg);
+    }, 400);
+  }
+
   // ── Event handlers ──
   function handleSaveEvent(ev) {
     setEvents(prev => {
@@ -302,6 +328,7 @@ export default function App() {
       />
 
       {showExamSetup && subject && <ExamSetup subject={subject} onStart={handleStartExam} onClose={() => setShowExamSetup(false)} />}
+      {showMarkPaper && subject && <MarkPaperSetup subject={subject} onStart={handleStartMarkPaper} onClose={() => setShowMarkPaper(false)} />}
 
       {editingEvent && (
         <EventModal
@@ -347,6 +374,7 @@ export default function App() {
         onEditEvent={ev => setEditingEvent(ev)}
         onDeleteEvent={handleDeleteEvent}
         onOpenCalculator={() => setShowCalc(true)}
+        onMarkPaper={() => setShowMarkPaper(true)}
       />
 
       {!active ? (

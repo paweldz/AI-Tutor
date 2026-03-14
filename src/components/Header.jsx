@@ -4,7 +4,7 @@ import { getActiveNotes } from "./TeacherNotes.jsx";
 import { getStudentNoteCount } from "./StudentNotes.jsx";
 import { getSubjectEvents, getReminders, daysUntil, formatEventDate, eventTypeInfo } from "../utils/events.js";
 
-function TestMenu({ subject, examMode, examSession, setShowExamSetup, onEndExam, setBuildQuizFor, setQuizSubject }) {
+function TestMenu({ subject, examMode, examSession, setShowExamSetup, onEndExam, setBuildQuizFor, setQuizSubject, onMarkPaper }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -18,6 +18,7 @@ function TestMenu({ subject, examMode, examSession, setShowExamSetup, onEndExam,
   const items = [
     { emoji: "\u26a1", label: "Quick Test", desc: "10 auto-generated questions", onClick: () => { setQuizSubject(subject); setOpen(false); } },
     { emoji: "\ud83d\udee0\ufe0f", label: "Build Test", desc: "Customise question types & count", onClick: () => { setBuildQuizFor(subject); setOpen(false); } },
+    { emoji: "\ud83d\udcdd", label: "Mark Paper", desc: "Upload a completed test for marking", onClick: () => { onMarkPaper(); setOpen(false); } },
     examMode
       ? { emoji: "\u23f9", label: "End Exam", desc: examSession?.mode === "paper" ? "Past paper practice" : "Free exam practice", active: true, onClick: () => { onEndExam(); setOpen(false); } }
       : { emoji: "\ud83d\udcdd", label: "Exam Mode", desc: "Free practice or past paper", onClick: () => { setShowExamSetup(true); setOpen(false); } },
@@ -260,7 +261,7 @@ export function Header({
   setVoiceMode, setConvoMode,
   genSummary, setActive, switchUser, startMicRef, stopMic,
   onAddEvent, onCompleteEvent, onEditEvent, onDeleteEvent,
-  onOpenCalculator,
+  onOpenCalculator, onMarkPaper,
 }) {
   const reminders = getReminders(events || []);
   return (
@@ -273,7 +274,7 @@ export function Header({
       {active && (
         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
           <button className="btn" onClick={() => setTopicsFor(subject)} style={{ padding: "5px 10px", borderRadius: 20, border: "none", cursor: "pointer", background: "rgba(0,0,0,0.07)", color: "#666", fontSize: 11, fontWeight: 700 }}>{"\ud83d\udcdd"} Topics</button>
-          <TestMenu subject={subject} examMode={examMode} examSession={examSession} setShowExamSetup={setShowExamSetup} onEndExam={onEndExam} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} />
+          <TestMenu subject={subject} examMode={examMode} examSession={examSession} setShowExamSetup={setShowExamSetup} onEndExam={onEndExam} setBuildQuizFor={setBuildQuizFor} setQuizSubject={setQuizSubject} onMarkPaper={onMarkPaper} />
           <NotesMenu subject={subject} teacherNoteCount={active ? getActiveNotes(teacherNotes, active).length : 0} studentNoteCount={active ? getStudentNoteCount(studentNotes, active) : 0} setModal={setModal} />
           <EventsMenu subject={subject} events={events || []} onAddEvent={onAddEvent} onCompleteEvent={onCompleteEvent} onEditEvent={onEditEvent} onDeleteEvent={onDeleteEvent} />
           <ToolsMenu subject={subject} onOpenCalculator={onOpenCalculator} />
