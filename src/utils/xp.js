@@ -45,8 +45,12 @@ export function calcStreak(dates) {
 }
 export function weekHeatmap(dates) {
   const map = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
+  // Build Mon–Sun week: find the most recent Monday, then show 7 days
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  const daysSinceMonday = jsDay === 0 ? 6 : jsDay - 1;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getTime() - (daysSinceMonday - i) * 86400000);
     const ds = d.toISOString().slice(0, 10);
     const day = d.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2);
     map.push({ date: ds, day, active: dates.includes(ds) });
