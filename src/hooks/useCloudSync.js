@@ -73,7 +73,34 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
         ]);
 
         if (settings?.memory) {
-          setMemory(settings.memory);
+          // Backfill isoDate on sessions that lack it (needed for week/month filtering)
+          const mem = settings.memory;
+          if (mem?.subjects) {
+            const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
+            for (const sessions of Object.values(mem.subjects)) {
+              for (const ses of sessions) {
+                if (ses.isoDate) continue;
+                const d = ses.date;
+                if (!d) continue;
+                const clean = d.replace(/^today[\s,]+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
+                // Day-first: "14 March 2026"
+                let m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+                if (m) { const mo = MONTH_MAP[m[2].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[1].padStart(2, "0")}`; continue; } }
+                // Month-first: "March 14, 2026"
+                m = clean.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+                if (m) { const mo = MONTH_MAP[m[1].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[2].padStart(2, "0")}`; continue; } }
+                // ISO: "2026-03-14"
+                if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) ses.isoDate = clean;
+              }
+            }
+          }
+          // Debug: log sessions missing isoDate after backfill
+          for (const [sid, sessions] of Object.entries(mem.subjects)) {
+            for (const ses of sessions) {
+              if (!ses.isoDate && ses.studyTimeMinutes) console.warn("[cloudSync] session missing isoDate after backfill:", sid, "date:", ses.date, "mins:", ses.studyTimeMinutes);
+            }
+          }
+          setMemory(mem);
           setDbConnected(true);
         } else if (cloud) {
           setMemory(cloud);
