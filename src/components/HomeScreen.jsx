@@ -125,7 +125,19 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 1 }}>{t.label}{bd ? " \u00b7 " + bd : ""}</div>
               </div>
               <div style={{ background: "#fff", padding: "10px 16px" }}>
-                {tTotal > 0 && <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ height: 4, borderRadius: 2, background: "#eee" }}><div style={{ height: "100%", borderRadius: 2, background: t.color, width: tpct + "%", transition: "width .5s" }} /></div></div>}
+                {tTotal > 0 && (() => {
+                  const prog = topicData[t.id] || {};
+                  const topicConfs = allTopics.map(topic => {
+                    const c = conf[topic] ?? prog[topic]?.confidence ?? (prog[topic]?.studied > 0 ? 0 : -1);
+                    return { topic, confidence: c };
+                  }).sort((a, b) => {
+                    if (a.confidence < 0 && b.confidence >= 0) return 1;
+                    if (b.confidence < 0 && a.confidence >= 0) return -1;
+                    return b.confidence - a.confidence;
+                  });
+                  const confColor = c => c < 0 ? "#eee" : c >= 80 ? "#22c55e" : c >= 60 ? "#f59e0b" : c >= 30 ? "#f97316" : "#ef4444";
+                  return <div style={{ marginBottom: 6 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#999", marginBottom: 2 }}><span>{tDone}/{tTotal} topics</span><span>{tpct}%</span></div><div style={{ display: "flex", gap: 2 }}>{topicConfs.map((tc, j) => <div key={j} title={tc.topic + (tc.confidence >= 0 ? ": " + tc.confidence + "%" : ": not covered")} style={{ flex: 1, height: 5, borderRadius: 3, background: confColor(tc.confidence), transition: "background .3s" }} />)}</div></div>;
+                })()}
                 <div style={{ fontSize: 11, color: t.color, fontWeight: 700, marginBottom: 4 }}>{sc === 0 ? "No sessions yet" : "\ud83e\udde0 " + sc + " session" + (sc > 1 ? "s" : "")}</div>
                 {mc > 0 && <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>{"\ud83d\udcce"} {mc} material{mc > 1 ? "s" : ""}</div>}
                 <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
