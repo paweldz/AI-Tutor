@@ -7,7 +7,7 @@ import { recordTopicStudy } from "../utils/topics.js";
 import { buildTeacherNotesPrompt } from "../components/TeacherNotes.jsx";
 import { buildStudentNotesPrompt } from "../components/StudentNotes.jsx";
 import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
-import { createSessionMetrics, recordMessage, recordAssessment, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
+import { createSessionMetrics, recordMessage, recordAssessment, computeMetricsSummary, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
 
 /**
  * Manages the send-message, generate-summary, and auto-save flows.
@@ -25,6 +25,8 @@ export function useChat({
   sessionsRef.current = sessions;
   // Per-subject session metrics (assessments, active time)
   const metricsRef = useRef({});
+  // Track which subjects have already been saved this session to prevent duplicates
+  const savedRef = useRef({});
 
   const subject = active ? SUBJECTS[active] : null;
   const curMats = active ? (mats[active] || []) : [];
@@ -73,9 +75,17 @@ export function useChat({
     try {
       const sys = buildSystemPrompt(active, profile, curMem, curMats, false, profile.tutorCharacters?.[active]);
       const metricsBlock = formatMetricsForPrompt(getMetrics(active));
+      const localMetrics = computeMetricsSummary(getMetrics(active));
       const data = await apiSummary(sys, msgs, metricsBlock);
+      // Ensure metrics are always present (use local tracking as fallback)
+      if (!data.metrics || !data.metrics.totalQuestions) data.metrics = localMetrics;
+      if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
+      // Stamp with unique ID + message count for dedup
+      data.sessionId = crypto.randomUUID();
+      data.savedMsgCount = msgs.length;
       setMemory(prev => addSessionToMem(prev, active, data));
       sbSave(active, data.date, JSON.stringify(data));
+      savedRef.current[active] = msgs.length;
       gainXP(25, "Session summary");
       if (data.confidenceScores) {
         setTopicData(prev => {
@@ -92,20 +102,31 @@ export function useChat({
   }
 
   async function autoSave(sid, chatMsgs, sidMats) {
+    // Skip if already saved manually (same or more messages)
+    if (savedRef.current[sid] && savedRef.current[sid] >= chatMsgs.length) return;
     if (chatMsgs.length < 6 || autoSumming) return;
     setAutoSumming(true);
     try {
       const sys = buildSystemPrompt(sid, profile, getSessions(memory, sid), sidMats, false, profile.tutorCharacters?.[sid]);
       const metricsBlock = formatMetricsForPrompt(getMetrics(sid));
+      const localMetrics = computeMetricsSummary(getMetrics(sid));
       const data = await apiSummary(sys, chatMsgs, metricsBlock);
+      if (!data.metrics || !data.metrics.totalQuestions) data.metrics = localMetrics;
+      if (!data.topicDepth && localMetrics.depthByTopic && Object.keys(localMetrics.depthByTopic).length) data.topicDepth = localMetrics.depthByTopic;
+      data.sessionId = crypto.randomUUID();
+      data.savedMsgCount = chatMsgs.length;
       setMemory(prev => addSessionToMem(prev, sid, data));
       sbSave(sid, data.date, JSON.stringify(data));
+      savedRef.current[sid] = chatMsgs.length;
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }
 
-  /** Reset metrics when switching subjects (called externally) */
+  /** Reset metrics and save tracking when switching subjects (called externally) */
   function resetMetrics(sid) {
-    if (sid) delete metricsRef.current[sid];
+    if (sid) {
+      delete metricsRef.current[sid];
+      delete savedRef.current[sid];
+    }
   }
 
   /** Get current metrics for display (e.g. SummaryModal) */

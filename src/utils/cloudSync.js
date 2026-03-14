@@ -61,8 +61,12 @@ export function mergeMemory(local, cloud) {
   const merged = { version: 2, subjects: { ...local.subjects } };
   for (const [sid, sessions] of Object.entries(cloud.subjects || {})) {
     const existing = merged.subjects[sid] || [];
-    const keys = new Set(existing.map(s => s.date + "|" + (s.rawSummaryText || "").slice(0, 80)));
-    merged.subjects[sid] = [...existing, ...sessions.filter(s => !keys.has(s.date + "|" + (s.rawSummaryText || "").slice(0, 80)))];
+    // Use sessionId for dedup when available, fall back to date+text fingerprint
+    const keys = new Set(existing.map(s => s.sessionId || (s.date + "|" + (s.rawSummaryText || "").slice(0, 80))));
+    merged.subjects[sid] = [...existing, ...sessions.filter(s => {
+      const key = s.sessionId || (s.date + "|" + (s.rawSummaryText || "").slice(0, 80));
+      return !keys.has(key);
+    })];
   }
   return merged;
 }
