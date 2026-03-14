@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks } from "../utils/cloudSync.js";
+import { sbLoad, mergeMemory, sbLoadSettings, sbLoadXP, sbLoadStreaks, sbLoadSessionDates } from "../utils/cloudSync.js";
 import { supabase } from "../lib/supabase.js";
 
 /**
@@ -66,31 +66,41 @@ export function useCloudSync({ user, profile, setProfile, setMemory, setTopicDat
         // ── Phase 2: Load memory, XP, streaks in parallel ──
         // Prefer memory from tutor_settings (includes deletes/clears),
         // fall back to row-by-row reconstruction from tutor_memory.
-        const [cloud, cloudXP, cloudStreaks] = await Promise.all([
+        // Always load session dates from tutor_memory for reliable isoDate.
+        const [cloud, sessionDates, cloudXP, cloudStreaks] = await Promise.all([
           settings?.memory ? Promise.resolve(null) : sbLoad().catch(e => { console.warn("[cloudSync] sbLoad threw:", e); return null; }),
+          sbLoadSessionDates().catch(e => { console.warn("[cloudSync] sbLoadSessionDates threw:", e); return null; }),
           sbLoadXP().catch(e => { console.warn("[cloudSync] sbLoadXP threw:", e); return null; }),
           sbLoadStreaks().catch(e => { console.warn("[cloudSync] sbLoadStreaks threw:", e); return null; }),
         ]);
 
         if (settings?.memory) {
-          // Backfill isoDate on sessions that lack it (needed for week/month filtering)
+          // Patch isoDate from tutor_memory.created_at (most reliable source)
           const mem = settings.memory;
-          if (mem?.subjects) {
-            const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
-            for (const sessions of Object.values(mem.subjects)) {
+          if (mem?.subjects && sessionDates) {
+            for (const [sid, sessions] of Object.entries(mem.subjects)) {
               for (const ses of sessions) {
-                if (ses.isoDate) continue;
-                const d = ses.date;
-                if (!d) continue;
-                const clean = d.replace(/^today[\s,]+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
-                // Day-first: "14 March 2026"
-                let m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-                if (m) { const mo = MONTH_MAP[m[2].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[1].padStart(2, "0")}`; continue; } }
-                // Month-first: "March 14, 2026"
-                m = clean.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
-                if (m) { const mo = MONTH_MAP[m[1].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[2].padStart(2, "0")}`; continue; } }
-                // ISO: "2026-03-14"
-                if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) ses.isoDate = clean;
+                // Try sessionId match first (most reliable)
+                if (ses.sessionId && sessionDates[ses.sessionId]) {
+                  ses.isoDate = sessionDates[ses.sessionId];
+                  continue;
+                }
+                // Fallback: subject + date + text prefix
+                const fallbackKey = sid + "|" + (ses.date || "") + "|" + (ses.rawSummaryText || "").slice(0, 60);
+                if (sessionDates[fallbackKey]) {
+                  ses.isoDate = sessionDates[fallbackKey];
+                  continue;
+                }
+                // Last resort: parse ses.date if no Supabase match
+                if (!ses.isoDate && ses.date) {
+                  const MONTH_MAP = { january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",july:"07",august:"08",september:"09",october:"10",november:"11",december:"12" };
+                  const clean = ses.date.replace(/^today[\s,]+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1").trim();
+                  let m = clean.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+                  if (m) { const mo = MONTH_MAP[m[2].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[1].padStart(2, "0")}`; continue; } }
+                  m = clean.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
+                  if (m) { const mo = MONTH_MAP[m[1].toLowerCase()]; if (mo) { ses.isoDate = `${m[3]}-${mo}-${m[2].padStart(2, "0")}`; continue; } }
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) ses.isoDate = clean;
+                }
               }
             }
           }

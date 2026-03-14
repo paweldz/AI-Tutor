@@ -40,9 +40,12 @@ export async function sbSave(subject, date, summary) {
 export async function sbLoad() {
   if (!supabase) return null;
   try {
+    const user = await getAuthUser();
+    if (!user) return null;
     const { data, error } = await supabase
       .from("tutor_memory")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: true });
     if (error) { console.warn("[cloudSync] sbLoad failed:", error.message); return null; }
     if (!data?.length) return null;
@@ -58,6 +61,34 @@ export async function sbLoad() {
     }
     return { version: 2, subjects };
   } catch (e) { console.warn("[cloudSync] sbLoad failed:", e); return null; }
+}
+
+/** Load sessionId → created_at date map from tutor_memory for accurate isoDate patching */
+export async function sbLoadSessionDates() {
+  if (!supabase) return null;
+  try {
+    const user = await getAuthUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("tutor_memory")
+      .select("subject, summary, created_at")
+      .eq("user_id", user.id);
+    if (error || !data?.length) return null;
+    const dateMap = {};
+    for (const row of data) {
+      if (!row.created_at) continue;
+      const isoDate = row.created_at.slice(0, 10);
+      let parsed; try { parsed = JSON.parse(row.summary); } catch { continue; }
+      if (parsed?.sessionId) {
+        dateMap[parsed.sessionId] = isoDate;
+      } else {
+        // Fallback key: subject + date + text prefix
+        const key = row.subject + "|" + (parsed?.date || "") + "|" + (parsed?.rawSummaryText || "").slice(0, 60);
+        dateMap[key] = isoDate;
+      }
+    }
+    return dateMap;
+  } catch (e) { console.warn("[cloudSync] sbLoadSessionDates failed:", e); return null; }
 }
 
 /** Delete a single session from Supabase by matching subject + sessionId or date+summary */
@@ -144,7 +175,9 @@ export async function sbSaveSetting(key, value) {
 export async function sbLoadSettings() {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from("tutor_settings").select("*");
+    const user = await getAuthUser();
+    if (!user) return null;
+    const { data, error } = await supabase.from("tutor_settings").select("*").eq("user_id", user.id);
     if (error) { console.warn("[cloudSync] sbLoadSettings failed:", error.message); return null; }
     if (!data) return null;
     const settings = {};
@@ -160,7 +193,9 @@ export async function sbLoadSettings() {
 export async function sbLoadXP() {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from("tutor_xp").select("*").maybeSingle();
+    const user = await getAuthUser();
+    if (!user) return null;
+    const { data, error } = await supabase.from("tutor_xp").select("*").eq("user_id", user.id).maybeSingle();
     if (error) { console.warn("[cloudSync] sbLoadXP failed:", error.message); return null; }
     if (!data) return null;
     return { total: data.total, history: data.history || [] };
@@ -184,7 +219,9 @@ export async function sbSaveXP(xpData) {
 export async function sbLoadStreaks() {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from("tutor_streaks").select("*").maybeSingle();
+    const user = await getAuthUser();
+    if (!user) return null;
+    const { data, error } = await supabase.from("tutor_streaks").select("*").eq("user_id", user.id).maybeSingle();
     if (error) { console.warn("[cloudSync] sbLoadStreaks failed:", error.message); return null; }
     if (!data) return null;
     return { dates: data.dates || [] };
