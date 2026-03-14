@@ -54,6 +54,24 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
         let monthMinutes = 0;
         let totalSessionCount = 0;
 
+        // Robust date parser: handles "14 March 2026", "14th March 2026",
+        // "today 14 March 2026", and other AI output quirks.
+        // Returns "YYYY-MM-DD" or "" on failure.
+        const parseSessionDate = (dateStr) => {
+          if (!dateStr) return "";
+          try {
+            // Strip ordinal suffixes (1st, 2nd, 3rd, 4th, etc.) and leading "today"
+            let clean = dateStr.replace(/^today\s+/i, "").replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+            const d = new Date(clean);
+            if (isNaN(d.getTime())) return "";
+            // Use local date parts to avoid timezone shift issues
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${y}-${m}-${day}`;
+          } catch { return ""; }
+        };
+
         const subjectMonthly = subs.map(s => {
           const sessions = getSessions(memory, s.id);
           let subMonthMins = 0;
@@ -62,9 +80,7 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
             const mins = ses.studyTimeMinutes || 0;
             totalMinutes += mins;
             totalSessionCount++;
-            // Parse date — "14 March 2026" format
-            let isoDate = "";
-            try { isoDate = new Date(ses.date).toISOString().slice(0, 10); } catch { /* skip */ }
+            const isoDate = parseSessionDate(ses.date);
             if (isoDate && weekDates.has(isoDate)) weekMinutes += mins;
             if (isoDate?.startsWith(monthStr)) { monthMinutes += mins; subMonthMins += mins; subMonthCount++; }
           }
