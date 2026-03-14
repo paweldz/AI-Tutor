@@ -296,6 +296,7 @@ export default function App() {
         studentNotes={studentNotes} onSaveStudentNotes={handleSaveStudentNotes}
         onSessionAction={handleSessionAction} onDeleteSession={handleDeleteSession}
         clearSubjectMem={clearSubjectMem} clearAllMem={clearAllMem}
+        events={events}
       />
 
       {showExamSetup && subject && <ExamSetup subject={subject} onStart={handleStartExam} onClose={() => setShowExamSetup(false)} />}
@@ -364,7 +365,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        <Route path="/dashboard" element={<DashboardPage memory={memory} mats={mats} profile={profile} xpData={xpData} streakData={streakData} />} />
+        <Route path="/dashboard" element={<DashboardPage memory={memory} mats={mats} profile={profile} xpData={xpData} streakData={streakData} events={events} />} />
         <Route path="*" element={mainView} />
       </Routes>
     </ErrorBoundary>

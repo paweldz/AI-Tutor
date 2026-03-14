@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { mySubjects } from "../config/subjects.js";
+import { SUBJECTS, mySubjects } from "../config/subjects.js";
 import { getSessions } from "../utils/storage.js";
 import { buildAllSummaries } from "../utils/summaries.js";
 import { confidenceColor } from "../styles/tokens.js";
+import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
 import s from "./Dashboard.module.css";
 
 /**
@@ -10,7 +11,7 @@ import s from "./Dashboard.module.css";
  * Reuses the same CSS module as the modal Dashboard.
  * Receives data via props from the App-level state.
  */
-export function DashboardPage({ memory, mats, profile, xpData, streakData }) {
+export function DashboardPage({ memory, mats, profile, xpData, streakData, events }) {
   const navigate = useNavigate();
   const subs = profile ? mySubjects(profile) : [];
   const allSums = buildAllSummaries(memory);
@@ -81,6 +82,38 @@ export function DashboardPage({ memory, mats, profile, xpData, streakData }) {
             );
           })}
         </div>
+
+        {(() => {
+          const upcoming = getUpcoming(events || []);
+          if (!upcoming.length) return null;
+          return (
+            <>
+              <div className={s.sectionTitle} style={{ marginTop: 24 }}>{"\ud83d\udcc5"} Upcoming Events</div>
+              {upcoming.slice(0, 8).map(ev => {
+                const sub = SUBJECTS[ev.subjectId];
+                const ti = eventTypeInfo(ev.type);
+                const days = daysUntil(ev.date);
+                const urgent = days <= 1;
+                return (
+                  <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#fff", borderRadius: 10, border: urgent ? "2px solid #ef4444" : "1px solid #eee", marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>{ti.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                      <div style={{ fontSize: 11, color: "#999" }}>
+                        {sub?.emoji} {sub?.label}
+                        {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 3).join(", ") : ""}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                      {days > 0 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} day{days !== 1 ? "s" : ""}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()}
 
         <div className={s.sectionTitle} style={{ marginTop: 24 }}>All Session Summaries</div>
         {allSums.length === 0 ? <div className={s.emptyState}>No summaries yet.</div> :

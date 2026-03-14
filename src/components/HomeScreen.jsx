@@ -13,15 +13,17 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 22px" }}>
       {/* Streak & XP Bar */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-        <div style={{ flex: 1, background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+        {/* a. Streaks */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 22 }}>{streak > 0 ? "\ud83d\udd25" : "\u2744\ufe0f"}</span>
             <div><div style={{ fontSize: 22, fontWeight: 900, color: "#1a1a2e", lineHeight: 1 }}>{streak}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>day streak</div></div>
           </div>
           <div style={{ display: "flex", gap: 3 }}>{week.map((d, i) => <div key={i} style={{ flex: 1, textAlign: "center" }}><div style={{ width: "100%", height: 6, borderRadius: 3, background: d.active ? "#22c55e" : "#eee", marginBottom: 2 }} /><div style={{ fontSize: 8, color: "#bbb" }}>{d.day}</div></div>)}</div>
         </div>
-        <div style={{ flex: 1, background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+        {/* b. Level */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 22 }}>{LEVEL_EMOJIS[lv.level] || "\ud83c\udfc6"}</span>
             <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Level {lv.level}</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{lv.title}</div></div>
@@ -30,6 +32,65 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           <div style={{ height: 6, borderRadius: 3, background: "#eee" }}><div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg,#f0c040,#f59e0b)", width: Math.min(100, lv.current / lv.next * 100) + "%", transition: "width .5s" }} /></div>
           <div style={{ fontSize: 9, color: "#bbb", marginTop: 3 }}>{lv.current}/{lv.next} XP to Level {lv.level + 1}</div>
         </div>
+        {/* c. Time Spent Stats */}
+        {(() => {
+          const activeDays = streakData.dates?.length || 0;
+          const totalSessions = totalMem;
+          const thisWeekDays = week.filter(d => d.active).length;
+          const xpThisWeek = (xpData.history || []).filter(h => week.some(w => w.date === h.date)).reduce((a, h) => a + h.amount, 0);
+          return (
+            <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 22 }}>{"\u23f1\ufe0f"}</span>
+                <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Study Time</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>Activity stats</div></div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ flex: 1, textAlign: "center", background: "#f0fdf4", borderRadius: 8, padding: "6px 4px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{thisWeekDays}</div>
+                  <div style={{ fontSize: 8, color: "#999" }}>this week</div>
+                </div>
+                <div style={{ flex: 1, textAlign: "center", background: "#fefce8", borderRadius: 8, padding: "6px 4px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{activeDays}</div>
+                  <div style={{ fontSize: 8, color: "#999" }}>total days</div>
+                </div>
+                <div style={{ flex: 1, textAlign: "center", background: "#eff6ff", borderRadius: 8, padding: "6px 4px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1a2e" }}>{totalSessions}</div>
+                  <div style={{ fontSize: 8, color: "#999" }}>sessions</div>
+                </div>
+              </div>
+              {xpThisWeek > 0 && <div style={{ fontSize: 9, color: "#999", marginTop: 6 }}>{"\u26a1"} {xpThisWeek} XP earned this week</div>}
+            </div>
+          );
+        })()}
+        {/* d. Upcoming Events */}
+        {(() => {
+          const upcoming = getUpcoming(events || []);
+          const next = upcoming[0];
+          const nextDays = next ? daysUntil(next.date) : -1;
+          return (
+            <div style={{ background: "#fff", borderRadius: 16, padding: "16px 18px", border: "1px solid #eee", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 22 }}>{"\ud83d\udcc5"}</span>
+                <div><div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Events</div><div style={{ fontSize: 10, color: "#999", fontWeight: 600 }}>{upcoming.length} upcoming</div></div>
+              </div>
+              {next ? (
+                <>
+                  <div style={{ background: nextDays <= 1 ? "#fef2f2" : "#f0f9ff", borderRadius: 10, padding: "8px 10px", marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: nextDays <= 1 ? "#ef4444" : "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {eventTypeInfo(next.type).emoji} {next.title}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#999" }}>
+                      {SUBJECTS[next.subjectId]?.emoji} {formatEventDate(next.date)}
+                    </div>
+                  </div>
+                  {upcoming.length > 1 && <div style={{ fontSize: 9, color: "#bbb" }}>+{upcoming.length - 1} more event{upcoming.length > 2 ? "s" : ""}</div>}
+                </>
+              ) : (
+                <div style={{ fontSize: 11, color: "#bbb", textAlign: "center", padding: 8 }}>No upcoming events</div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <h1 style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 6 }}>Hello, {profile.name}.</h1>

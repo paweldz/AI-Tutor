@@ -20,6 +20,7 @@ export function ModalLayer({
   studentNotes, onSaveStudentNotes,
   onSessionAction, onDeleteSession,
   clearSubjectMem, clearAllMem,
+  events,
 }) {
   return (
     <>
@@ -40,7 +41,7 @@ export function ModalLayer({
           onImport={(p, m) => { setProfile(p); setMemory(m); setModal(null); }}
         />
       )}
-      {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} onClose={() => setModal(null)} />}
+      {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} events={events} onClose={() => setModal(null)} />}
       {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} onOpenMemory={() => setModal("memory")} />}
       {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
       {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}

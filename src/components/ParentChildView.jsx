@@ -3,6 +3,7 @@ import { SUBJECTS } from "../config/subjects.js";
 import { loadChildData } from "../utils/parentSync.js";
 import { xpLevel, LEVEL_EMOJIS, calcStreak, weekHeatmap } from "../utils/xp.js";
 import { confidenceColor } from "../styles/tokens.js";
+import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils/events.js";
 import { ViewAsChildBanner } from "./ViewAsChildBanner.jsx";
 
 export function ParentChildView({ child, onBack }) {
@@ -112,6 +113,40 @@ export function ParentChildView({ child, onBack }) {
             );
           })}
         </div>
+
+        {/* Upcoming Events */}
+        {(() => {
+          const upcoming = getUpcoming(data.events || []);
+          if (!upcoming.length) return null;
+          return (
+            <>
+              <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 14 }}>{"\ud83d\udcc5"} Upcoming Events</div>
+              {upcoming.slice(0, 6).map(ev => {
+                const sub = SUBJECTS[ev.subjectId];
+                const ti = eventTypeInfo(ev.type);
+                const days = daysUntil(ev.date);
+                const urgent = days <= 1;
+                return (
+                  <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#fff", borderRadius: 12, border: urgent ? "2px solid #ef4444" : "1px solid #eee", marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>{ti.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{ev.title}</div>
+                      <div style={{ fontSize: 11, color: "#999" }}>
+                        {sub?.emoji} {sub?.label}
+                        {ev.topics?.length > 0 ? " \u00b7 " + ev.topics.slice(0, 3).join(", ") : ""}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: urgent ? "#ef4444" : sub?.color || "#6366f1" }}>{formatEventDate(ev.date)}</div>
+                      {days > 0 && <div style={{ fontSize: 10, color: "#bbb" }}>{days} day{days !== 1 ? "s" : ""}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ marginBottom: 24 }} />
+            </>
+          );
+        })()}
 
         {/* Session summaries */}
         <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "'Playfair Display',serif", color: "#1a1a2e", marginBottom: 14 }}>Recent Sessions</div>

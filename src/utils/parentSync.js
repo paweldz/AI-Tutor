@@ -164,6 +164,7 @@ export async function loadChildData(childId) {
       streaks,
       profile: settings.profile || null,
       topics: settings.topics || {},
+      events: settings.events || [],
     };
   } catch (e) {
     console.warn("[parentSync] loadChildData failed:", e);
