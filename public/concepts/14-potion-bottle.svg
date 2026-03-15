@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#302b63"/>
+    </linearGradient>
+    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Flask -->
+  <g transform="translate(256,240)">
+    <!-- Flask body -->
+    <path d="M-30,-130 L-30,-40 L-100,80 Q-110,110 -80,130 L80,130 Q110,110 100,80 L30,-40 L30,-130 Z"
+          fill="rgba(200,200,255,0.15)" stroke="rgba(200,200,255,0.5)" stroke-width="3"/>
+    <!-- Cork -->
+    <rect x="-35" y="-155" width="70" height="30" rx="6" fill="#c49a6c" stroke="#a07844" stroke-width="2"/>
+    <!-- Liquid -->
+    <path d="M-80,40 Q-40,20 0,40 Q40,60 80,40 L100,80 Q110,110 80,130 L-80,130 Q-110,110 -100,80 Z"
+          fill="url(#liquid)" opacity="0.85"/>
+    <!-- Bubbles -->
+    <circle cx="-30" cy="60" r="8" fill="rgba(255,255,255,0.3)" filter="url(#glow)"/>
+    <circle cx="20" cy="80" r="6" fill="rgba(255,255,255,0.25)"/>
+    <circle cx="-10" cy="100" r="10" fill="rgba(255,255,255,0.2)"/>
+    <circle cx="40" cy="50" r="5" fill="rgba(255,255,255,0.2)"/>
+    <circle cx="-50" cy="90" r="4" fill="rgba(255,255,255,0.15)"/>
+    <!-- Rising bubble -->
+    <circle cx="0" cy="10" r="7" fill="rgba(255,255,255,0.15)"/>
+    <circle cx="15" cy="-15" r="5" fill="rgba(255,255,255,0.1)"/>
+    <!-- A+ label -->
+    <g transform="translate(0,90)">
+      <rect x="-28" y="-18" width="56" height="32" rx="4" fill="#f0c040"/>
+      <text x="0" y="7" text-anchor="middle" font-family="Georgia,serif" font-weight="900" font-size="24" fill="#1a1a2e">A+</text>
+    </g>
+  </g>
+  <text x="256" y="450" text-anchor="middle" font-family="Georgia,serif" font-weight="900" font-size="42" fill="#a78bfa">CHEATO</text>
+</svg>
