@@ -269,7 +269,7 @@ export function Header({
       {active && <button onClick={() => setActive(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#666", padding: "4px 8px", borderRadius: 8 }} aria-label="Back">{"\u2190"}</button>}
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 10, color: "#aaa", letterSpacing: "0.08em", textTransform: "uppercase" }}>{profile.name}{profile.year ? " \u00b7 " + profile.year : ""}{profile.tier ? " \u00b7 " + profile.tier : ""}{active && profile.targetGrades?.[active] ? " \u00b7 Target: Grade " + profile.targetGrades[active] : ""}{autoSumming ? " \u00b7 saving memory..." : ""}</div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>{active ? subject.emoji + " " + subject.tutor.name : "Your Tutor Hub by Korona Lab \u00ae"}</div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a2e", fontFamily: "'Playfair Display',serif", lineHeight: 1.2 }}>{active ? subject.emoji + " " + subject.tutor.name : "Cheato"}</div>
       </div>
       {active && (
         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>

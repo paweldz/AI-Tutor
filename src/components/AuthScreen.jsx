@@ -65,7 +65,7 @@ export function AuthScreen({ onSignIn, onSignUp, onReset }) {
         {mode === "signup" ? "Create your account" : "Sign in to your tutor"}
       </h2>
       <p className={s.subtitle}>
-        {mode === "signup" ? "Get started with GCSE Tutor Hub" : "Your progress is saved securely in the cloud"}
+        {mode === "signup" ? "Get started with Cheato" : "Your progress is saved securely in the cloud"}
       </p>
       <input autoFocus type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" required className={s.inputSpaced} />
       <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required minLength={6} className={s.input} />

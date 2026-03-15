@@ -54,7 +54,7 @@ export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
                 <span style={{ color: "#ccc", fontSize: 14 }}>{"\u203a"}</span>
               </button>
             </div>}
-            <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee" }}><div style={{ fontSize: 11, color: "#bbb" }}>GCSE Tutor Hub v{APP_VERSION}</div></div>
+            <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee" }}><div style={{ fontSize: 11, color: "#bbb" }}>Cheato v{APP_VERSION}</div></div>
           </div>)}
           {tab === "subjects" && (<div>
             <div style={{ fontSize: 12, color: "#777", marginBottom: 14 }}>Tap to add or remove subjects. Changes take effect when you save.</div>
