@@ -10,6 +10,7 @@ import { buildStudentNotesPrompt } from "../components/StudentNotes.jsx";
 import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
 import { createSessionMetrics, recordMessage, recordAssessment, computeMetricsSummary, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
 import { saveSessionAnalytics, saveAssessment, saveTopicSnapshots, saveGradeSnapshot } from "../utils/analyticsSync.js";
+import { autoGenerateFeedbackIfDue } from "../utils/feedbackSync.js";
 
 /**
  * Manages the send-message, generate-summary, and auto-save flows.
@@ -113,6 +114,12 @@ export function useChat({
       saveSessionAnalytics(active, data, gradeEstSum);
       saveTopicSnapshots(active, data);
       saveGradeSnapshot(active, gradeEstSum);
+      // Feedback: auto-generate qualitative snapshots if due
+      const feedbackFreq = profile.feedbackFrequency ?? 5;
+      if (feedbackFreq > 0) {
+        const updatedMemory = { ...memory, subjects: { ...memory.subjects, [active]: [...(memory.subjects[active] || []), data] } };
+        autoGenerateFeedbackIfDue(updatedMemory, active, profile, feedbackFreq);
+      }
       gainXP(25, "Session summary");
       if (data.confidenceScores) {
         setTopicData(prev => {
@@ -163,6 +170,12 @@ export function useChat({
       saveSessionAnalytics(sid, data, gradeEstAuto);
       saveTopicSnapshots(sid, data);
       saveGradeSnapshot(sid, gradeEstAuto);
+      // Feedback: auto-generate qualitative snapshots if due
+      const feedbackFreqAuto = profile.feedbackFrequency ?? 5;
+      if (feedbackFreqAuto > 0) {
+        const updatedMem = { ...memory, subjects: { ...memory.subjects, [sid]: [...(memory.subjects[sid] || []), data] } };
+        autoGenerateFeedbackIfDue(updatedMem, sid, profile, feedbackFreqAuto);
+      }
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }
 
