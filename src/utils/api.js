@@ -30,6 +30,8 @@ export async function apiSend(systemPrompt, messages, maxTokens = 1200, { tools,
     const payload = { model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages: currentMessages };
     if (tools?.length) payload.tools = tools;
     const body = JSON.stringify(payload);
+    const bodyMB = (body.length / 1048576).toFixed(2);
+    if (bodyMB > 1) console.warn(`[apiSend] Payload size: ${bodyMB} MB, messages: ${currentMessages.length}, system: ${(systemPrompt.length / 1024).toFixed(1)} KB`);
 
     let data;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -47,6 +49,7 @@ export async function apiSend(systemPrompt, messages, maxTokens = 1200, { tools,
         continue;
       }
 
+      if (status === 413) throw new Error("Message too large \u2014 try starting a new session or removing uploaded files.");
       try { data = JSON.parse(raw); } catch { throw new Error("HTTP " + status + " \u2014 invalid response from API."); }
       if (data.error) {
         const msg = data.error.message || data.error.type || "Unknown";
