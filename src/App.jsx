@@ -7,7 +7,7 @@ import { getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from 
 import { addXP, recordActivity } from "./utils/xp.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
 import { saveQuizResult } from "./utils/analyticsSync.js";
-import { sbDeleteSession } from "./utils/cloudSync.js";
+import { sbDeleteSession, sbSaveSetting } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 import { updateEvent, deleteEvent, completeEvent, eventToMemoryEntry } from "./utils/events.js";
 
@@ -403,6 +403,7 @@ export default function App() {
             onDeleteEvent={handleDeleteEvent}
             onOpenStats={() => setShowStats(true)}
             onOpenFeedback={() => setShowFeedback(true)}
+            onReorderSubjects={newIds => setProfile(p => { const updated = { ...p, subjects: newIds }; sbSaveSetting("profile", updated); return updated; })}
           />
         </>
       ) : (
