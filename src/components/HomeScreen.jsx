@@ -7,7 +7,7 @@ import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils
 import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO } from "../utils/grades.js";
 import { EventsPanel } from "./EventsPanel.jsx";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent, onOpenStats }) {
   const [showEventsPanel, setShowEventsPanel] = useState(false);
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
@@ -97,6 +97,18 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           </div>
         </div>
       </div>
+
+      {/* Analytics button */}
+      {onOpenStats && (
+        <button onClick={onOpenStats} style={{ width: "100%", padding: "14px 18px", borderRadius: 14, border: "1.5px solid #6366f1", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, marginBottom: 24, textAlign: "left" }}>
+          <span style={{ fontSize: 22 }}>{"\ud83d\udcca"}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1a2e" }}>Analytics Dashboard</div>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>Charts, trends, grades & recommended focus areas</div>
+          </div>
+          <span style={{ color: "#6366f1", fontSize: 18, fontWeight: 700 }}>{"\u203a"}</span>
+        </button>
+      )}
 
       {/* 3. Tutor cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>

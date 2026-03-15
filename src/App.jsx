@@ -35,6 +35,7 @@ import { ParentHome } from "./components/ParentHome.jsx";
 import { ParentChildView } from "./components/ParentChildView.jsx";
 import { LinkChildModal } from "./components/LinkChildModal.jsx";
 import { ChildLinkBanner } from "./components/ChildLinkBanner.jsx";
+import { StatsPage } from "./components/StatsPage.jsx";
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut, resetPassword, authEnabled } = useAuth();
@@ -64,6 +65,7 @@ export default function App() {
   const [showLinkChild, setShowLinkChild] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [showMarkPaper, setShowMarkPaper] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sendRef = useRef(null);
@@ -379,7 +381,9 @@ export default function App() {
         onMarkPaper={() => setShowMarkPaper(true)}
       />
 
-      {!active ? (
+      {!active && showStats ? (
+        <StatsPage profile={profile} onBack={() => setShowStats(false)} />
+      ) : !active ? (
         <>
           <ChildLinkBanner />
           <HomeScreen
@@ -392,6 +396,7 @@ export default function App() {
             onAddEvent={() => setEditingEvent("new")}
             onCompleteEvent={ev => setCompletingEvent(ev)}
             onDeleteEvent={handleDeleteEvent}
+            onOpenStats={() => setShowStats(true)}
           />
         </>
       ) : (
