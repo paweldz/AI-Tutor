@@ -1,7 +1,46 @@
 import { useState } from "react";
 import { SUBJECTS, BOARDS, YEARS, TIERS, ALL_SUBJECT_LIST } from "../config/subjects.js";
 import { gradesForTier, GRADE_INFO } from "../utils/grades.js";
+import { backfillAnalytics } from "../utils/backfillAnalytics.js";
 const APP_VERSION = `3.6.0 (${__BUILD_TIME__})`;
+
+// Temporary backfill button — remove after all users have run it
+function BackfillButton() {
+  const [state, setState] = useState("idle"); // idle | running | done | error
+  const [result, setResult] = useState(null);
+  async function run() {
+    setState("running");
+    try {
+      const r = await backfillAnalytics();
+      setResult(r);
+      setState("done");
+    } catch (e) {
+      setResult(e.message);
+      setState("error");
+    }
+  }
+  return (
+    <div style={{ marginTop: 16 }}>
+      <button onClick={run} disabled={state === "running" || state === "done"} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "2px solid #6366f1", background: state === "done" ? "#f0fdf4" : state === "error" ? "#fef2f2" : "#f5f3ff", cursor: state === "running" || state === "done" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left", opacity: state === "running" ? 0.7 : 1 }}>
+        <span style={{ fontSize: 20 }}>{state === "done" ? "\u2705" : state === "error" ? "\u274c" : "\ud83d\udcca"}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>
+            {state === "idle" && "Backfill Analytics Data"}
+            {state === "running" && "Backfilling..."}
+            {state === "done" && "Backfill Complete!"}
+            {state === "error" && "Backfill Failed"}
+          </div>
+          <div style={{ fontSize: 11, color: "#666", marginTop: 1 }}>
+            {state === "idle" && "Populate analytics tables from existing sessions (run once)"}
+            {state === "running" && "Processing your session history..."}
+            {state === "done" && result && `${result.sessions} sessions, ${result.snapshots} topic snapshots${result.skipped ? ", " + result.skipped + " skipped" : ""}`}
+            {state === "error" && result}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
 
 export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
   const [p, setP] = useState({ ...profile, examBoards: { ...profile.examBoards }, targetGrades: { ...(profile.targetGrades || {}) }, tutorCharacters: { ...profile.tutorCharacters }, subjects: [...(profile.subjects || [])] });
@@ -43,6 +82,7 @@ export function SettingsModal({ profile, onSave, onClose, onOpenMemory }) {
                 <span style={{ color: "#ccc", fontSize: 14 }}>{"\u203a"}</span>
               </button>
             </div>}
+            <BackfillButton />
             <div style={{ marginTop: 16, padding: "12px 14px", borderRadius: 10, background: "#f8f8f8", border: "1px solid #eee" }}><div style={{ fontSize: 11, color: "#bbb" }}>GCSE Tutor Hub v{APP_VERSION}</div></div>
           </div>)}
           {tab === "subjects" && (<div>
