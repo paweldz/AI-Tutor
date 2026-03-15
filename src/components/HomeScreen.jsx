@@ -7,8 +7,10 @@ import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils
 import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO } from "../utils/grades.js";
 import { EventsPanel } from "./EventsPanel.jsx";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent, onOpenStats, onOpenFeedback }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent, onOpenStats, onOpenFeedback, onReorderSubjects }) {
   const [showEventsPanel, setShowEventsPanel] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
   const week = weekHeatmap(streakData.dates);
@@ -136,8 +138,17 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           const tDone = allTopics.filter(topic => (topicData[t.id] || {})[topic]?.studied > 0).length;
           const targetG = profile.targetGrades?.[t.id];
           const estG = estimateGrade(memory, events, topicData, profile, t.id, allTopics);
+          const isDragging = dragIdx === i;
+          const isOver = overIdx === i && dragIdx !== i;
           return (
-            <div key={t.id} style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both` }}>
+            <div key={t.id}
+              draggable
+              onDragStart={e => { setDragIdx(i); e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={e => { e.preventDefault(); setOverIdx(i); }}
+              onDragEnter={e => { e.preventDefault(); setOverIdx(i); }}
+              onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== i && onReorderSubjects) { const ids = [...(profile.subjects || subs.map(s => s.id))]; const [moved] = ids.splice(dragIdx, 1); ids.splice(i, 0, moved); onReorderSubjects(ids); } setDragIdx(null); setOverIdx(null); }}
+              onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+              style={{ borderRadius: 18, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.07)", animation: `ci .4s ease ${i * .06}s both`, opacity: isDragging ? 0.5 : 1, outline: isOver ? "2px dashed #6366f1" : "none", outlineOffset: -2, cursor: "grab", transition: "opacity .15s, outline .15s" }}>
               <div className="card" onClick={() => onSelectSubject(t.id)} style={{ background: t.gradient, padding: "18px 16px 14px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>

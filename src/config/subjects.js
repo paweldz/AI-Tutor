@@ -329,6 +329,9 @@ export const ALL_SUBJECT_IDS   = Object.keys(SUBJECTS);
 export const ALL_SUBJECT_LIST  = Object.values(SUBJECTS);
 export function mySubjects(profile) {
   const ids = profile?.subjects || [];
-  return ids.length ? ids.map(id => SUBJECTS[id]).filter(Boolean) : ALL_SUBJECT_LIST.slice(0, 4);
+  const list = ids.length ? ids.map(id => SUBJECTS[id]).filter(Boolean) : ALL_SUBJECT_LIST.slice(0, 4);
+  const names = profile?.tutorNames;
+  if (!names) return list;
+  return list.map(s => names[s.id] ? { ...s, tutor: { ...s.tutor, name: names[s.id] } } : s);
 }
 export function emptyMats() { return Object.fromEntries(ALL_SUBJECT_IDS.map(id => [id, []])); }
