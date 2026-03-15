@@ -49,7 +49,7 @@ export function LinkChildModal({ onClose, onLinked }) {
           ) : (
             <form onSubmit={handleSubmit}>
               <p style={{ fontSize: 13, color: "#666", marginBottom: 16, lineHeight: 1.5 }}>
-                Enter your child's email address (the one they use to sign in to GCSE Tutor Hub). They'll need to confirm the link from their account.
+                Enter your child's email address (the one they use to sign in to Cheato). They'll need to confirm the link from their account.
               </p>
               <input
                 autoFocus

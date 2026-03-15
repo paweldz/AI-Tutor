@@ -7,7 +7,7 @@ import { getUpcoming, formatEventDate, daysUntil, eventTypeInfo } from "../utils
 import { estimateGrade, formatGradeRange, gradeColor, GRADE_INFO } from "../utils/grades.js";
 import { EventsPanel } from "./EventsPanel.jsx";
 
-export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent }) {
+export function HomeScreen({ profile, memory, mats, xpData, streakData, topicData, customTopics, totalMem, events, onSelectSubject, onQuickQuiz, onTopics, onBuildQuiz, onEditEvent, onAddEvent, onCompleteEvent, onDeleteEvent, onOpenStats, onOpenFeedback }) {
   const [showEventsPanel, setShowEventsPanel] = useState(false);
   const lv = xpLevel(xpData.total);
   const streak = calcStreak(streakData.dates);
@@ -97,6 +97,32 @@ export function HomeScreen({ profile, memory, mats, xpData, streakData, topicDat
           </div>
         </div>
       </div>
+
+      {/* Analytics & Feedback buttons */}
+      {(onOpenStats || onOpenFeedback) && (
+        <div style={{ display: "grid", gridTemplateColumns: onOpenStats && onOpenFeedback ? "1fr 1fr" : "1fr", gap: 10, marginBottom: 24 }}>
+          {onOpenStats && (
+            <button onClick={onOpenStats} style={{ padding: "14px 14px", borderRadius: 14, border: "1.5px solid #6366f1", background: "linear-gradient(135deg, #f5f3ff, #ede9fe)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+              <span style={{ fontSize: 20 }}>{"\ud83d\udcca"}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Analytics</div>
+                <div style={{ fontSize: 10, color: "#888", marginTop: 1 }}>Charts & trends</div>
+              </div>
+              <span style={{ color: "#6366f1", fontSize: 16, fontWeight: 700 }}>{"\u203a"}</span>
+            </button>
+          )}
+          {onOpenFeedback && (
+            <button onClick={onOpenFeedback} style={{ padding: "14px 14px", borderRadius: 14, border: "1.5px solid #059669", background: "linear-gradient(135deg, #f0fdf4, #dcfce7)", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}>
+              <span style={{ fontSize: 20 }}>{"\ud83d\udcdd"}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a2e" }}>Tutor Feedback</div>
+                <div style={{ fontSize: 10, color: "#888", marginTop: 1 }}>Insights & advice</div>
+              </div>
+              <span style={{ color: "#059669", fontSize: 16, fontWeight: 700 }}>{"\u203a"}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 3. Tutor cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>

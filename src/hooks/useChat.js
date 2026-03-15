@@ -9,6 +9,8 @@ import { buildTeacherNotesPrompt } from "../components/TeacherNotes.jsx";
 import { buildStudentNotesPrompt } from "../components/StudentNotes.jsx";
 import { TUTOR_TOOLS, executeTool } from "../utils/tools.js";
 import { createSessionMetrics, recordMessage, recordAssessment, computeMetricsSummary, formatMetricsForPrompt } from "../utils/sessionMetrics.js";
+import { saveSessionAnalytics, saveAssessment, saveTopicSnapshots, saveGradeSnapshot } from "../utils/analyticsSync.js";
+import { autoGenerateFeedbackIfDue } from "../utils/feedbackSync.js";
 
 /**
  * Manages the send-message, generate-summary, and auto-save flows.
@@ -28,6 +30,8 @@ export function useChat({
   const metricsRef = useRef({});
   // Track which subjects have already been saved this session to prevent duplicates
   const savedRef = useRef({});
+  // Track current session IDs for linking assessments to sessions
+  const sessionIdRef = useRef({});
 
   const subject = active ? SUBJECTS[active] : null;
   const curMats = active ? (mats[active] || []) : [];
@@ -59,7 +63,10 @@ export function useChat({
     const studentNotesBlock = studentNotes ? buildStudentNotesPrompt(studentNotes, active) : "";
     const fullSys = voiceNote + (textMats.length ? "TEACHER MATERIALS:\n" + textMats.map(m => "[" + m.name + "]:\n" + m.textContent).join("\n---\n") + "\n\n---\n\n" : "") + sys + teacherNotesBlock + studentNotesBlock;
     const apiMsgs = buildApiMsgs(curMats, updated.map(m => ({ role: m.role, content: m.content })), examSession);
-    const onAssessment = (entry) => { metricsRef.current[active] = recordAssessment(getMetrics(active), entry); };
+    const onAssessment = (entry) => {
+      metricsRef.current[active] = recordAssessment(getMetrics(active), entry);
+      saveAssessment(active, sessionIdRef.current[active] || null, entry);
+    };
     const toolCtx = { memory, profile, active, onAssessment };
     const onToolUse = (name, input) => executeTool(name, input, toolCtx);
     try {
@@ -101,7 +108,18 @@ export function useChat({
       }
       setMemory(prev => addSessionToMem(prev, active, data));
       sbSave(active, data.isoDate || data.date, JSON.stringify(data));
+      sessionIdRef.current[active] = data.sessionId;
       savedRef.current[active] = msgs.length;
+      // Analytics: structured writes for charts and reports
+      saveSessionAnalytics(active, data, gradeEstSum);
+      saveTopicSnapshots(active, data);
+      saveGradeSnapshot(active, gradeEstSum);
+      // Feedback: auto-generate qualitative snapshots if due
+      const feedbackFreq = profile.feedbackFrequency ?? 5;
+      if (feedbackFreq > 0) {
+        const updatedMemory = { ...memory, subjects: { ...memory.subjects, [active]: [...(memory.subjects[active] || []), data] } };
+        autoGenerateFeedbackIfDue(updatedMemory, active, profile, feedbackFreq);
+      }
       gainXP(25, "Session summary");
       if (data.confidenceScores) {
         setTopicData(prev => {
@@ -146,7 +164,18 @@ export function useChat({
       }
       setMemory(prev => addSessionToMem(prev, sid, data));
       sbSave(sid, data.isoDate || data.date, JSON.stringify(data));
+      sessionIdRef.current[sid] = data.sessionId;
       savedRef.current[sid] = chatMsgs.length;
+      // Analytics: structured writes for charts and reports
+      saveSessionAnalytics(sid, data, gradeEstAuto);
+      saveTopicSnapshots(sid, data);
+      saveGradeSnapshot(sid, gradeEstAuto);
+      // Feedback: auto-generate qualitative snapshots if due
+      const feedbackFreqAuto = profile.feedbackFrequency ?? 5;
+      if (feedbackFreqAuto > 0) {
+        const updatedMem = { ...memory, subjects: { ...memory.subjects, [sid]: [...(memory.subjects[sid] || []), data] } };
+        autoGenerateFeedbackIfDue(updatedMem, sid, profile, feedbackFreqAuto);
+      }
     } catch { /* auto-save is best-effort */ } finally { setAutoSumming(false); }
   }
 
@@ -155,6 +184,7 @@ export function useChat({
     if (sid) {
       delete metricsRef.current[sid];
       delete savedRef.current[sid];
+      delete sessionIdRef.current[sid];
     }
   }
 

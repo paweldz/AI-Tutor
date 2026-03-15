@@ -6,6 +6,7 @@ import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
 import { addXP, recordActivity } from "./utils/xp.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
+import { saveQuizResult } from "./utils/analyticsSync.js";
 import { sbDeleteSession } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 import { updateEvent, deleteEvent, completeEvent, eventToMemoryEntry } from "./utils/events.js";
@@ -34,6 +35,8 @@ import { ParentHome } from "./components/ParentHome.jsx";
 import { ParentChildView } from "./components/ParentChildView.jsx";
 import { LinkChildModal } from "./components/LinkChildModal.jsx";
 import { ChildLinkBanner } from "./components/ChildLinkBanner.jsx";
+import { StatsPage } from "./components/StatsPage.jsx";
+import { FeedbackPage } from "./components/FeedbackPage.jsx";
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut, resetPassword, authEnabled } = useAuth();
@@ -63,6 +66,8 @@ export default function App() {
   const [showLinkChild, setShowLinkChild] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [showMarkPaper, setShowMarkPaper] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const sendRef = useRef(null);
@@ -139,6 +144,7 @@ export default function App() {
       active, sessionsRef, mats, examMode,
       setSessions, setLoading: () => {},
     });
+    saveQuizResult(result.subjectId, result.quizType, result.questions, result.answers);
   }
 
   function handleSessionAction(type, data) {
@@ -375,9 +381,14 @@ export default function App() {
         onDeleteEvent={handleDeleteEvent}
         onOpenCalculator={() => setShowCalc(true)}
         onMarkPaper={() => setShowMarkPaper(true)}
+        onOpenStats={() => setShowStats(true)}
       />
 
-      {!active ? (
+      {!active && showStats ? (
+        <StatsPage profile={profile} onBack={() => setShowStats(false)} />
+      ) : !active && showFeedback ? (
+        <FeedbackPage profile={profile} memory={memory} onBack={() => setShowFeedback(false)} />
+      ) : !active ? (
         <>
           <ChildLinkBanner />
           <HomeScreen
@@ -390,6 +401,8 @@ export default function App() {
             onAddEvent={() => setEditingEvent("new")}
             onCompleteEvent={ev => setCompletingEvent(ev)}
             onDeleteEvent={handleDeleteEvent}
+            onOpenStats={() => setShowStats(true)}
+            onOpenFeedback={() => setShowFeedback(true)}
           />
         </>
       ) : (
