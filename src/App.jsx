@@ -6,6 +6,7 @@ import { SUBJECTS, emptyMats } from "./config/subjects.js";
 import { getSessions, deleteSessionFromMem, clearSubjectMem, clearAllMem } from "./utils/storage.js";
 import { addXP, recordActivity } from "./utils/xp.js";
 import { buildQuizSummary, injectQuizIntoChat } from "./utils/quizSync.js";
+import { saveQuizResult } from "./utils/analyticsSync.js";
 import { sbDeleteSession } from "./utils/cloudSync.js";
 import { getQuickPrompts } from "./utils/quickPrompts.js";
 import { updateEvent, deleteEvent, completeEvent, eventToMemoryEntry } from "./utils/events.js";
@@ -139,6 +140,7 @@ export default function App() {
       active, sessionsRef, mats, examMode,
       setSessions, setLoading: () => {},
     });
+    saveQuizResult(result.subjectId, result.quizType, result.questions, result.answers);
   }
 
   function handleSessionAction(type, data) {
