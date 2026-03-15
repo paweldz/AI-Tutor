@@ -379,6 +379,7 @@ export default function App() {
         onDeleteEvent={handleDeleteEvent}
         onOpenCalculator={() => setShowCalc(true)}
         onMarkPaper={() => setShowMarkPaper(true)}
+        onOpenStats={() => setShowStats(true)}
       />
 
       {!active && showStats ? (

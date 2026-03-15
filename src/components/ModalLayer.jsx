@@ -1,7 +1,7 @@
 import { MaterialsPanel } from "./MaterialsPanel.jsx";
 import { MemoryManager } from "./MemoryManager.jsx";
 import { SummaryModal } from "./SummaryModal.jsx";
-import { Dashboard } from "./Dashboard.jsx";
+
 import { SettingsModal } from "./SettingsModal.jsx";
 import { TopicsPanel } from "./TopicsPanel.jsx";
 import { QuickQuiz } from "./QuickQuiz.jsx";
@@ -41,8 +41,7 @@ export function ModalLayer({
           onImport={(p, m) => { setProfile(p); setMemory(m); setModal(null); }}
         />
       )}
-      {modal === "dash" && <Dashboard memory={memory} mats={mats} profile={profile} events={events} onClose={() => setModal(null)} />}
-      {modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} onOpenMemory={() => setModal("memory")} />}
+{modal === "settings" && <SettingsModal profile={profile} onSave={updateProfile} onClose={() => setModal(null)} onOpenMemory={() => setModal("memory")} />}
       {showSum && subject && <SummaryModal subject={subject} sessionData={showSum} onClose={() => setShowSum(null)} />}
       {quizSubject && <QuickQuiz subject={quizSubject} profile={profile} memory={memory} topicData={topicData} onClose={() => setQuizSubject(null)} onXP={gainXP} onQuizComplete={onQuizComplete} />}
       {topicsFor && <TopicsPanel subject={topicsFor} profile={profile} topicData={topicData} customTopics={customTopics} onStudy={topic => { studyTopic(topicsFor, topic); setTopicsFor(null); }} onClose={() => setTopicsFor(null)} onSaveCustomTopics={onSaveCustomTopics} />}
