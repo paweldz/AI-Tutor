@@ -261,7 +261,7 @@ export function Header({
   setVoiceMode, setConvoMode,
   genSummary, setActive, switchUser, startMicRef, stopMic,
   onAddEvent, onCompleteEvent, onEditEvent, onDeleteEvent,
-  onOpenCalculator, onMarkPaper, onOpenStats,
+  onOpenCalculator, onMarkPaper,
 }) {
   const reminders = getReminders(events || []);
   return (
@@ -291,8 +291,7 @@ export function Header({
             <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>{reminders.length}</span>
           </div>
         )}
-        {!active && onOpenStats && <button className="btn" onClick={onOpenStats} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Analytics">{"\ud83d\udcca"}</button>}
-        <button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Settings">{"\u2699\ufe0f"}</button>
+<button className="btn" onClick={() => setModal("settings")} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Settings">{"\u2699\ufe0f"}</button>
         <div style={{ padding: "6px 10px", borderRadius: 20, background: dbConnected ? "#059669" : "#dc2626", color: "#fff", fontSize: 13, display: "flex", alignItems: "center" }} title={dbConnected ? "Synced" : "Not synced"}>{"\u2601\ufe0f"}</div>
         <button className="btn" onClick={switchUser} style={{ padding: "6px 10px", borderRadius: 20, border: "2px solid rgba(0,0,0,0.1)", background: "transparent", color: "#444", fontSize: 13, cursor: "pointer" }} title="Switch User">{"\ud83d\udc64"}</button>
       </div>
